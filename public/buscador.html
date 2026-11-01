@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Repórtalo 24 - Buscador</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        html, body { width: 100%; overflow-x: hidden; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a3a3a 0%, #0f2e2e 100%);
+            min-height: 100vh; color: #333;
+        }
+        .header {
+            background: linear-gradient(135deg, #1a8b8b 0%, #0f5a5a 100%);
+            color: white; padding: 14px 16px; text-align: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        .header h1 { font-size: 19px; font-weight: 700; }
+        .header p { font-size: 12px; opacity: 0.9; margin-top: 2px; }
+        .content { padding: 16px; display: flex; flex-direction: column; gap: 16px; max-width: 500px; margin: 0 auto; }
+        .card { background: white; border-radius: 12px; padding: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+        label { display: block; font-weight: 600; color: #1a8b8b; margin-bottom: 8px; font-size: 14px; }
+        input[type="text"], textarea {
+            width: 100%; padding: 14px; border: 2px solid #e0e0e0; border-radius: 8px;
+            font-family: inherit; font-size: 16px; -webkit-appearance: none; appearance: none;
+        }
+        input[type="text"]:focus, textarea:focus { outline: none; border-color: #1a8b8b; box-shadow: 0 0 0 3px rgba(26,139,139,0.12); }
+        textarea { resize: vertical; min-height: 70px; line-height: 1.5; }
+        .btn {
+            width: 100%; padding: 16px; border: none; border-radius: 8px; font-size: 16px;
+            font-weight: 700; cursor: pointer; -webkit-appearance: none; appearance: none;
+            margin-top: 10px; text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .btn:active { transform: scale(0.98); }
+        .btn:disabled { opacity: 0.6; }
+        .btn-primary { background: linear-gradient(135deg, #1a8b8b 0%, #0f5a5a 100%); color: white; }
+        .btn-green { background: #27ae60; color: white; }
+        .btn-ghost { background: #eef7f7; color: #1a8b8b; border: 2px solid #1a8b8b; text-transform: none; font-size: 14px; padding: 12px; }
+        .btn-link { display:block; text-align:center; text-decoration:none; background:#16323a; color:white; }
+        .sug { border:1px solid #e0e0e0; border-top:none; border-radius:0 0 8px 8px; overflow:hidden; }
+        .sug div { padding:12px 14px; font-size:14px; border-top:1px solid #f0f0f0; cursor:pointer; color:#333; }
+        .sug div:active { background:#eef7f7; }
+        .noticia { border:1px solid #eee; border-radius:10px; padding:12px; margin-top:10px; }
+        .noticia .tit { font-weight:700; font-size:15px; color:#16323a; line-height:1.35; }
+        .noticia .meta { font-size:12px; color:#888; margin-top:6px; }
+        .noticia .res { font-size:13px; color:#555; margin-top:8px; line-height:1.4; }
+        .msg { font-size:13px; padding:12px; border-radius:6px; display:none; margin-top:10px; }
+        .msg.visible { display:block; }
+        .msg-error { color:#c0392b; background:#fdecea; border-left:4px solid #e74c3c; }
+        .msg-info { color:#1e6b6b; background:#e9f7f7; border-left:4px solid #1a8b8b; }
+        .placa-prev { background:#10201f; color:#fff; border-radius:10px; padding:14px; margin-top:10px; }
+        .placa-prev .franja { display:inline-block; background:#d61f2c; color:#fff; font-weight:800; font-size:12px; padding:4px 10px; border-radius:6px; letter-spacing:0.5px; }
+        .placa-prev .pt { font-weight:800; font-size:18px; margin-top:10px; line-height:1.2; white-space:pre-line; }
+        .placa-prev .ps { font-size:14px; margin-top:8px; opacity:0.95; line-height:1.4; }
+        .copybox { background:#f7f7f7; border:1px solid #e0e0e0; border-radius:8px; padding:12px; font-size:13px; white-space:pre-wrap; margin-top:10px; max-height:160px; overflow:auto; color:#333; }
+        .spin { text-align:center; color:#1a8b8b; font-weight:600; padding:10px; display:none; }
+        .spin.visible { display:block; }
+        @supports(padding: max(0px)) {
+            .content { padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)); padding-bottom: max(20px, env(safe-area-inset-bottom)); }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔎 Repórtalo 24</h1>
+        <p>Buscador de noticias · @reportalo24</p>
+    </div>
+
+    <div class="content">
+        <div class="card">
+            <label for="tema">Tema o palabra clave (opcional)</label>
+            <input type="text" id="tema" placeholder="Ej: dólar, Maduro, apagón..." autocomplete="off">
+            <div class="sug" id="sugBox"></div>
+            <button class="btn btn-primary" id="buscarBtn">🔎 Buscar noticias</button>
+            <div class="spin" id="spin">⏳ Buscando titulares...</div>
+            <div id="msg" class="msg"></div>
+        </div>
+
+        <div class="card" id="resultadosCard" style="display:none;">
+            <label>📰 Titulares encontrados</label>
+            <div id="resultados"></div>
+        </div>
+
+        <div class="card" id="placaCard" style="display:none;">
+            <label>✨ Placa lista (revísala antes de publicar)</label>
+            <div class="placa-prev" id="placaPrev"></div>
+            <label style="margin-top:14px;">📋 Copy para Instagram</label>
+            <div class="copybox" id="copyBox"></div>
+            <button class="btn btn-ghost" id="copyBtn">📋 Copiar copy</button>
+            <button class="btn btn-green" id="abrirGenBtn">🎨 Abrir en el generador</button>
+        </div>
+
+        <div class="card">
+            <label>✍️ ¿Prefieres escribir tú el titular?</label>
+            <textarea id="manualTitulo" placeholder="Escribe el titular tal cual..."></textarea>
+            <textarea id="manualResumen" placeholder="Resumen o subtítulo (opcional)" style="margin-top:10px;"></textarea>
+            <button class="btn btn-ghost" id="armarManualBtn">✨ Armar placa con mi texto</button>
+        </div>
+
+        <a href="generador.html" class="btn btn-link">🎨 Ir directo al generador</a>
+    </div>
+
+    <script>
+        var ultimaPlaca = null;
+
+        function showMsg(text, type) {
+            var m = document.getElementById('msg');
+            m.textContent = text;
+            m.className = 'msg visible ' + (type === 'error' ? 'msg-error' : 'msg-info');
+        }
+        function hideMsg() { document.getElementById('msg').className = 'msg'; }
+
+        // ---- Autocompletar: sugerencias amarillistas mientras escribes el tema ----
+        var sugTimer = null;
+        document.getElementById('tema').addEventListener('input', function() {
+            var tema = this.value.trim();
+            clearTimeout(sugTimer);
+            if (!tema) { document.getElementById('sugBox').innerHTML = ''; return; }
+            sugTimer = setTimeout(function() {
+                fetch('/api/sugerencias?tema=' + encodeURIComponent(tema))
+                    .then(function(r) { return r.json(); })
+                    .then(function(d) {
+                        var box = document.getElementById('sugBox');
+                        box.innerHTML = '';
+                        (d.sugerencias || []).forEach(function(s) {
+                            var el = document.createElement('div');
+                            el.textContent = '💡 ' + s;
+                            el.onclick = function() {
+                                document.getElementById('manualTitulo').value = s;
+                                box.innerHTML = '';
+                                document.getElementById('manualTitulo').scrollIntoView({ behavior: 'smooth' });
+                            };
+                            box.appendChild(el);
+                        });
+                    })
+                    .catch(function() {});
+            }, 300);
+        });
+
+        // ---- Buscar noticias reales por RSS ----
+        document.getElementById('buscarBtn').addEventListener('click', function() {
+            var tema = document.getElementById('tema').value.trim();
+            hideMsg();
+            document.getElementById('sugBox').innerHTML = '';
+            document.getElementById('spin').className = 'spin visible';
+            document.getElementById('resultadosCard').style.display = 'none';
+            fetch('/api/noticias' + (tema ? '?tema=' + encodeURIComponent(tema) : ''))
+                .then(function(r) { return r.json(); })
+                .then(function(d) {
+                    document.getElementById('spin').className = 'spin';
+                    if (!d.ok || !d.items.length) { showMsg(d.nota || 'No se encontraron titulares.', 'info'); return; }
+                    var cont = document.getElementById('resultados');
+                    cont.innerHTML = '';
+                    d.items.forEach(function(n) {
+                        var div = document.createElement('div');
+                        div.className = 'noticia';
+                        var fecha = n.fecha ? new Date(n.fecha).toLocaleDateString('es-VE', { day: '2-digit', month: 'short' }) : '';
+                        div.innerHTML = '<div class="tit"></div><div class="meta"></div><div class="res"></div>';
+                        div.querySelector('.tit').textContent = n.titulo;
+                        div.querySelector('.meta').textContent = '📰 ' + n.fuente + (fecha ? ' · ' + fecha : '');
+                        div.querySelector('.res').textContent = n.resumen || '';
+                        var b = document.createElement('button');
+                        b.className = 'btn btn-ghost';
+                        b.textContent = '✨ Armar placa con esta';
+                        b.onclick = function() { armar(n.titulo, n.resumen, n.fuente, ''); };
+                        div.appendChild(b);
+                        cont.appendChild(div);
+                    });
+                    document.getElementById('resultadosCard').style.display = 'block';
+                })
+                .catch(function() {
+                    document.getElementById('spin').className = 'spin';
+                    showMsg('No se pudo conectar. Revisa tu internet e intenta de nuevo.', 'error');
+                });
+        });
+
+        // ---- Armar la placa (llama a /api/redactar) ----
+        function armar(titulo, resumen, fuente, categoria) {
+            if (!titulo || !titulo.trim()) { showMsg('Escribe o elige un titular primero.', 'error'); return; }
+            fetch('/api/redactar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ titulo: titulo, resumen: resumen, fuente: fuente, categoria: categoria })
+            })
+                .then(function(r) { return r.json(); })
+                .then(function(d) {
+                    if (!d.ok) { showMsg(d.error || 'No se pudo armar la placa.', 'error'); return; }
+                    ultimaPlaca = d;
+                    var prev = document.getElementById('placaPrev');
+                    prev.innerHTML = '<span class="franja"></span><div class="pt"></div><div class="ps"></div>';
+                    prev.querySelector('.franja').textContent = d.franja;
+                    prev.querySelector('.pt').textContent = d.titulo;
+                    prev.querySelector('.ps').textContent = d.subtitulo.replace(/\*\*/g, '');
+                    document.getElementById('copyBox').textContent = d.copy;
+                    document.getElementById('placaCard').style.display = 'block';
+                    document.getElementById('placaCard').scrollIntoView({ behavior: 'smooth' });
+                })
+                .catch(function() { showMsg('No se pudo conectar con el servidor.', 'error'); });
+        }
+
+        document.getElementById('armarManualBtn').addEventListener('click', function() {
+            armar(document.getElementById('manualTitulo').value, document.getElementById('manualResumen').value, '', '');
+        });
+
+        // ---- Copiar el copy ----
+        document.getElementById('copyBtn').addEventListener('click', function() {
+            if (!ultimaPlaca) return;
+            var btn = this;
+            navigator.clipboard.writeText(ultimaPlaca.copy).then(function() {
+                btn.textContent = '✅ Copiado';
+                setTimeout(function() { btn.textContent = '📋 Copiar copy'; }, 2000);
+            }).catch(function() { showMsg('No se pudo copiar automáticamente; selecciónalo a mano.', 'info'); });
+        });
+
+        // ---- Abrir el generador con la placa precargada ----
+        document.getElementById('abrirGenBtn').addEventListener('click', function() {
+            if (!ultimaPlaca) return;
+            var p = ultimaPlaca;
+            var url = 'generador.html?title=' + encodeURIComponent(p.titulo) +
+                      '&subtitle=' + encodeURIComponent(p.subtitulo) +
+                      '&cat=' + encodeURIComponent(p.categoria) +
+                      '&tag=' + encodeURIComponent(p.franja);
+            window.location.href = url;
+        });
+    </script>
+</body>
+</html>

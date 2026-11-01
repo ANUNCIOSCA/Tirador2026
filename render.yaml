@@ -1,0 +1,12 @@
+# Despliegue en Render (plan gratuito).
+# En Render: New > Blueprint > conecta este repo y se configura solo.
+services:
+  - type: web
+    name: reportalo24
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
