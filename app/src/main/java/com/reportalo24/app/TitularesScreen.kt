@@ -1,6 +1,8 @@
 package com.reportalo24.app
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -16,6 +18,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -39,8 +42,10 @@ import java.util.Locale
 fun TitularesScreen(state: AppState, onArmar: (Borrador) -> Unit, showMessage: (String) -> Unit) {
     val scope = rememberCoroutineScope()
     var tema by remember { mutableStateOf("") }
-    var manualTitulo by remember { mutableStateOf("") }
-    var manualResumen by remember { mutableStateOf("") }
+    var franjaM by remember { mutableStateOf(state.perfil.franjaDefault) }
+    var tituloM by remember { mutableStateOf("") }
+    var subtituloM by remember { mutableStateOf("") }
+    var catM by remember { mutableStateOf("NINGUNA") }
     var cargandoIA by remember { mutableStateOf(false) }
 
     fun construir(res: Redactor.Resultado, fuente: String, link: String) = Borrador(
@@ -103,7 +108,7 @@ fun TitularesScreen(state: AppState, onArmar: (Borrador) -> Unit, showMessage: (
                         Redactor.sugerencias(tema).forEach { s ->
                             Text(
                                 "💡 $s",
-                                modifier = Modifier.fillMaxWidth().clickable { manualTitulo = s }.padding(vertical = 8.dp),
+                                modifier = Modifier.fillMaxWidth().clickable { tituloM = s }.padding(vertical = 8.dp),
                                 style = MaterialTheme.typography.bodyMedium,
                             )
                             HorizontalDivider()
@@ -139,16 +144,47 @@ fun TitularesScreen(state: AppState, onArmar: (Borrador) -> Unit, showMessage: (
         item {
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                 Column(Modifier.padding(16.dp)) {
-                    Text("✍️ Escribe tú el titular", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(value = manualTitulo, onValueChange = { manualTitulo = it }, placeholder = { Text("Titular...") }, modifier = Modifier.fillMaxWidth())
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(value = manualResumen, onValueChange = { manualResumen = it }, placeholder = { Text("Resumen o subtítulo (opcional)") }, modifier = Modifier.fillMaxWidth())
+                    Text("✍️ Redactar yo mismo (formato R24)", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
                     Spacer(Modifier.height(10.dp))
+                    OutlinedTextField(value = franjaM, onValueChange = { franjaM = it }, label = { Text("Franja (el tema, MAYÚSCULAS)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(value = tituloM, onValueChange = { tituloM = it }, label = { Text("Título") }, modifier = Modifier.fillMaxWidth())
+                    Text("Sentencia de 4 a 8 palabras que juzga y señala al responsable.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(value = subtituloM, onValueChange = { subtituloM = it }, label = { Text("Subtítulo") }, modifier = Modifier.fillMaxWidth())
+                    Text("El dato que duele, con cifra o fecha. Usa **palabra** para resaltarla en rojo.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(10.dp))
+                    Text("Categoría", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
+                        Categorias.lista.forEach { c ->
+                            FilterChip(
+                                selected = catM == c,
+                                onClick = { catM = c },
+                                label = { Text(if (c == "NINGUNA") "Ninguna" else c.lowercase().replaceFirstChar { it.uppercase() }) },
+                                modifier = Modifier.padding(end = 8.dp),
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
                     OutlinedButton(
-                        onClick = { if (manualTitulo.isNotBlank()) armarDesde(manualTitulo, manualResumen, "", "") },
+                        onClick = {
+                            if (tituloM.isBlank()) { showMessage("Escribe al menos el título"); return@OutlinedButton }
+                            val cat = if (catM == "NINGUNA") Redactor.detectarCat("$tituloM $subtituloM") else catM
+                            onArmar(
+                                Borrador(
+                                    franja = franjaM.ifBlank { state.perfil.franjaDefault },
+                                    mostrarFranja = franjaM.isNotBlank(),
+                                    titulo = tituloM,
+                                    subtitulo = subtituloM,
+                                    categoria = catM,
+                                    copy = Redactor.copyManual(tituloM, subtituloM, catM, state.perfil.usuario),
+                                    hashtags = Redactor.hashtags(cat).joinToString(" "),
+                                )
+                            )
+                        },
                         modifier = Modifier.fillMaxWidth(),
-                    ) { Text("✨ Armar placa con mi texto") }
+                    ) { Text("🎨 Usar en el generador") }
+                    Text("Tu texto pasa tal cual al generador, sin que la IA lo reescriba.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }

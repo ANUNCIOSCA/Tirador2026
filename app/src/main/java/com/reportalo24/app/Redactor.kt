@@ -107,6 +107,16 @@ object Redactor {
         )
     }
 
+    /** Arma el copy de Instagram a partir del texto que escribió el usuario, SIN reescribirlo. */
+    fun copyManual(titulo: String, subtitulo: String, categoria: String, usuario: String): String {
+        val t = titulo.replace("\n", " ").trim()
+        val sub = subtitulo.replace("**", "").replace(Regex("\\s+"), " ").trim()
+        val cat = if (categoria.isBlank() || categoria == "NINGUNA") detectarCat("$t $sub") else categoria
+        val tag = usuario.ifBlank { "@reportalo24" }
+        val cuerpo = if (sub.isNotBlank()) "$t\n\n$sub" else t
+        return "🚨 $cuerpo\n\n¿Qué opinas? Déjalo en los comentarios 👇\n📲 Sigue a $tag para más\n\n${hashtags(cat).joinToString(" ")}"
+    }
+
     /** Sugerencias de titulares amarillistas (autocompletar) a partir de un tema. */
     fun sugerencias(tema: String): List<String> {
         val t = tema.trim()
