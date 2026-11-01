@@ -68,3 +68,10 @@ data class PerfilMarca(
 object Categorias {
     val lista = listOf("NINGUNA", "NACIONAL", "ECONOMÍA", "POLÍTICA", "DEPORTE", "INTERNACIONAL")
 }
+
+/** Config de la redacción con IA (Groq). La clave se guarda solo en el teléfono. */
+data class AppConfig(
+    val iaActiva: Boolean = false,
+    val groqApiKey: String = "",
+    val groqModel: String = "llama-3.3-70b-versatile",
+)

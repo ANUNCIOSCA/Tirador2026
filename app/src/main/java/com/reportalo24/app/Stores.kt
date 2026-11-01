@@ -120,6 +120,27 @@ object FuenteStore {
 
 // ---------------------------------------------------------------------------
 
+object ConfigStore {
+    const val PREFS = "r24_config"
+
+    fun load(context: Context): AppConfig {
+        val p = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        return AppConfig(
+            iaActiva = p.getBoolean("iaActiva", false),
+            groqApiKey = p.getString("groqApiKey", "") ?: "",
+            groqModel = p.getString("groqModel", "llama-3.3-70b-versatile") ?: "llama-3.3-70b-versatile",
+        )
+    }
+
+    fun save(context: Context, c: AppConfig) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putBoolean("iaActiva", c.iaActiva)
+            .putString("groqApiKey", c.groqApiKey)
+            .putString("groqModel", c.groqModel)
+            .apply()
+    }
+}
+
 object PerfilStore {
     const val PREFS = "r24_perfil"
 

@@ -129,7 +129,7 @@ fun Reportalo24App(sharedText: MutableState<String?>) {
         ) { padding ->
             Box(Modifier.padding(padding).fillMaxSize()) {
                 when (tab) {
-                    0 -> TitularesScreen(state = state, onArmar = { b -> editing = b; tab = 1 })
+                    0 -> TitularesScreen(state = state, onArmar = { b -> editing = b; tab = 1 }, showMessage = showMessage)
                     1 -> GeneradorScreen(
                         state = state,
                         inicial = editing,

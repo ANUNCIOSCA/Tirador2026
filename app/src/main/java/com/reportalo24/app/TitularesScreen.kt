@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -35,32 +36,56 @@ import java.util.Date
 import java.util.Locale
 
 @Composable
-fun TitularesScreen(state: AppState, onArmar: (Borrador) -> Unit) {
+fun TitularesScreen(state: AppState, onArmar: (Borrador) -> Unit, showMessage: (String) -> Unit) {
     val scope = rememberCoroutineScope()
     var tema by remember { mutableStateOf("") }
     var manualTitulo by remember { mutableStateOf("") }
     var manualResumen by remember { mutableStateOf("") }
+    var cargandoIA by remember { mutableStateOf(false) }
+
+    fun construir(res: Redactor.Resultado, fuente: String, link: String) = Borrador(
+        franja = res.franja,
+        titulo = res.titulo,
+        subtitulo = res.subtitulo,
+        categoria = res.categoria,
+        copy = res.copy,
+        hashtags = res.hashtags.joinToString(" "),
+        fuente = fuente,
+        link = link,
+    )
 
     fun armarDesde(titulo: String, resumen: String, fuente: String, link: String) {
-        val res = Redactor.redactar(titulo, resumen, fuente, null, state.perfil.usuario)
-        onArmar(
-            Borrador(
-                franja = res.franja,
-                titulo = res.titulo,
-                subtitulo = res.subtitulo,
-                categoria = res.categoria,
-                copy = res.copy,
-                hashtags = res.hashtags.joinToString(" "),
-                fuente = fuente,
-                link = link,
-            )
-        )
+        val usaIA = state.config.iaActiva && state.config.groqApiKey.isNotBlank()
+        if (!usaIA) {
+            onArmar(construir(Redactor.redactar(titulo, resumen, fuente, null, state.perfil.usuario), fuente, link))
+            return
+        }
+        scope.launch {
+            cargandoIA = true
+            showMessage("✨ Redactando con IA...")
+            val res = runCatching { GroqRedactor.redactar(state.config, titulo, resumen, fuente, state.perfil.usuario) }
+            cargandoIA = false
+            val r = res.getOrElse {
+                showMessage("IA no disponible (${it.message?.take(60) ?: "error"}). Usé plantilla.")
+                Redactor.redactar(titulo, resumen, fuente, null, state.perfil.usuario)
+            }
+            onArmar(construir(r, fuente, link))
+        }
     }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        if (cargandoIA) {
+            item {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    CircularProgressIndicator()
+                    Spacer(Modifier.width(12.dp))
+                    Text("Redactando con IA...", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                }
+            }
+        }
         item {
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                 Column(Modifier.padding(16.dp)) {
