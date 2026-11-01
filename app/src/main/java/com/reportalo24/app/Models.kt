@@ -66,7 +66,10 @@ data class PerfilMarca(
 )
 
 object Categorias {
-    val lista = listOf("NINGUNA", "NACIONAL", "ECONOMÍA", "POLÍTICA", "DEPORTE", "INTERNACIONAL")
+    val lista = listOf(
+        "NINGUNA", "NACIONAL", "INTERNACIONAL", "POLÍTICA", "ECONOMÍA",
+        "SUCESOS", "DEPORTE", "FARÁNDULA", "SALUD", "TECNOLOGÍA", "VIRAL", "OPINIÓN",
+    )
 }
 
 /** Config de la redacción con IA (Groq). La clave se guarda solo en el teléfono. */

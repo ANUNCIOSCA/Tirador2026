@@ -8,6 +8,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -32,8 +34,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -43,11 +47,14 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -70,8 +77,11 @@ fun GeneradorScreen(
     var formato by remember(inicial.id) { mutableStateOf(inicial.formato) }
     var posicion by remember(inicial.id) { mutableStateOf(50f) }
     var subSize by remember(inicial.id) { mutableStateOf(38f) }
+    var tituloSize1 by remember(inicial.id) { mutableStateOf(72f) }
+    var tituloSize2 by remember(inicial.id) { mutableStateOf(72f) }
     var imagenUri by remember(inicial.id) { mutableStateOf(inicial.imagenUri) }
     var imgZoom by remember(inicial.id) { mutableStateOf(1f) }
+    var showZoom by remember { mutableStateOf(false) }
 
     val foto = remember(imagenUri) { ImageIO.loadBitmap(context, imagenUri.ifBlank { null }) }
     val logo = remember(state.perfil.logoUri) { ImageIO.loadBitmap(context, state.perfil.logoUri.ifBlank { null }) }
@@ -96,12 +106,14 @@ fun GeneradorScreen(
         usuario = state.perfil.usuario,
         posicion = posicion.toInt(),
         subSize = subSize.toInt(),
+        tituloSize1 = tituloSize1.toInt(),
+        tituloSize2 = tituloSize2.toInt(),
         imgZoom = imgZoom,
         conFoto = conFoto,
     )
 
     // Vista previa en segundo plano (no bloquea la UI)
-    val preview by produceState<Bitmap?>(initialValue = null, titulo, subtitulo, franja, mostrarFranja, categoria, formato, posicion, subSize, imagenUri, imgZoom) {
+    val preview by produceState<Bitmap?>(initialValue = null, titulo, subtitulo, franja, mostrarFranja, categoria, formato, posicion, subSize, tituloSize1, tituloSize2, imagenUri, imgZoom) {
         value = withContext(Dispatchers.Default) { runCatching { PlacaRenderer.render(opciones(true)) }.getOrNull() }
     }
 
@@ -130,8 +142,9 @@ fun GeneradorScreen(
             )
             procesandoVideo = false
             if (ok && salida.exists() && salida.length() > 0) {
-                if (ImageIO.saveVideoToGallery(context, salida, "R24_video_${System.currentTimeMillis()}")) showMessage("✅ Video guardado en la galería (Movies/Reportalo24)")
-                else { ImageIO.shareFile(context, salida, "video/mp4"); showMessage("Video listo — compártelo") }
+                val guardado = ImageIO.saveVideoToGallery(context, salida, "R24_video_${System.currentTimeMillis()}")
+                showMessage(if (guardado) "✅ Video guardado. Elige dónde publicarlo." else "Video listo. Elige dónde publicarlo.")
+                ImageIO.shareFile(context, salida, "video/mp4")
             } else showMessage("No se pudo procesar el video. Prueba con un clip más corto (9:16).")
         }
     }
@@ -140,9 +153,11 @@ fun GeneradorScreen(
         // Vista previa
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             preview?.let {
-                Image(it.asImageBitmap(), contentDescription = "Vista previa", modifier = Modifier.width(200.dp), contentScale = ContentScale.FillWidth)
+                Image(it.asImageBitmap(), contentDescription = "Vista previa", modifier = Modifier.width(200.dp).clickable { showZoom = true }, contentScale = ContentScale.FillWidth)
             } ?: Text("Escribe un título para ver la placa", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(40.dp))
         }
+        Spacer(Modifier.height(8.dp))
+        OutlinedButton(onClick = { showZoom = true }, enabled = preview != null, modifier = Modifier.fillMaxWidth()) { Text("🔍 Ver en grande y ajustar en vivo") }
         Spacer(Modifier.height(16.dp))
 
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
@@ -150,6 +165,12 @@ fun GeneradorScreen(
                 Text("📝 Título (máx. 2 líneas)", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.height(6.dp))
                 OutlinedTextField(value = titulo, onValueChange = { titulo = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("TERREMOTO 7.5 EN CARACAS") })
+                Spacer(Modifier.height(10.dp))
+                Text("🔠 Tamaño línea 1: ${tituloSize1.toInt()}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Slider(value = tituloSize1, onValueChange = { tituloSize1 = it }, valueRange = 24f..120f)
+                Text("🔠 Tamaño línea 2: ${tituloSize2.toInt()}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Slider(value = tituloSize2, onValueChange = { tituloSize2 = it }, valueRange = 24f..120f)
+                Text("Cada línea tiene su tamaño; si no cabe, se achica sola.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(12.dp))
                 Text("✍️ Subtítulo (**palabra** sale en rojo)", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.height(6.dp))
@@ -232,7 +253,7 @@ fun GeneradorScreen(
             },
             enabled = !procesandoVideo,
             modifier = Modifier.fillMaxWidth(),
-        ) { Text("🎬 Poner sobre un video (subir)") }
+        ) { Text("🎬 Subir video → bajar y publicar con la placa") }
         Spacer(Modifier.height(8.dp))
         OutlinedButton(onClick = {
             val copy = borradorActual().copy
@@ -241,6 +262,36 @@ fun GeneradorScreen(
             showMessage("Copy copiado al portapapeles")
         }, modifier = Modifier.fillMaxWidth()) { Text("📋 Copiar copy") }
         Spacer(Modifier.height(24.dp))
+    }
+
+    if (showZoom) {
+        Dialog(onDismissRequest = { showZoom = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+            Surface(Modifier.fillMaxSize(), color = Color(0xF21A1A1A)) {
+                Column(
+                    Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Vista en vivo", color = Color.White, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                        TextButton(onClick = { showZoom = false }) { Text("Cerrar", color = Color.White) }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    preview?.let {
+                        Image(it.asImageBitmap(), contentDescription = "Vista previa grande", modifier = Modifier.fillMaxWidth(0.82f), contentScale = ContentScale.FillWidth)
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    Text("🔠 Tamaño línea 1: ${tituloSize1.toInt()}", color = Color.White, style = MaterialTheme.typography.bodySmall)
+                    Slider(value = tituloSize1, onValueChange = { tituloSize1 = it }, valueRange = 24f..120f)
+                    Text("🔠 Tamaño línea 2: ${tituloSize2.toInt()}", color = Color.White, style = MaterialTheme.typography.bodySmall)
+                    Slider(value = tituloSize2, onValueChange = { tituloSize2 = it }, valueRange = 24f..120f)
+                    Text("🔡 Tamaño subtítulo: ${subSize.toInt()}", color = Color.White, style = MaterialTheme.typography.bodySmall)
+                    Slider(value = subSize, onValueChange = { subSize = it }, valueRange = 24f..54f)
+                    Text("↕️ Posición del texto: ${posicion.toInt()}", color = Color.White, style = MaterialTheme.typography.bodySmall)
+                    Slider(value = posicion, onValueChange = { posicion = it }, valueRange = 0f..100f)
+                    Spacer(Modifier.height(16.dp))
+                }
+            }
+        }
     }
 
     if (procesandoVideo) {
