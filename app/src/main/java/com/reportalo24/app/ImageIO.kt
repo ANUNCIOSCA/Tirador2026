@@ -70,6 +70,24 @@ object ImageIO {
         }
     }.getOrDefault(false)
 
+    /** Guarda un MP4 en la galería (Movies/Repórtalo 24). */
+    fun saveVideoToGallery(context: Context, file: File, name: String): Boolean = runCatching {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val values = ContentValues().apply {
+                put(MediaStore.Video.Media.DISPLAY_NAME, "$name.mp4")
+                put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
+                put(MediaStore.Video.Media.RELATIVE_PATH, "${Environment.DIRECTORY_MOVIES}/Reportalo24")
+            }
+            val uri = context.contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values) ?: return false
+            context.contentResolver.openOutputStream(uri)?.use { out -> file.inputStream().use { it.copyTo(out) } }
+            true
+        } else {
+            val dir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES), "Reportalo24").apply { mkdirs() }
+            file.copyTo(File(dir, "$name.mp4"), overwrite = true)
+            true
+        }
+    }.getOrDefault(false)
+
     fun shareImage(context: Context, bmp: Bitmap, name: String, texto: String? = null) {
         val file = cachePng(context, bmp, name)
         val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)

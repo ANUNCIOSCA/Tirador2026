@@ -40,6 +40,8 @@ object PlacaRenderer {
         val imgOffX: Float = 0f,
         val imgOffY: Float = 0f,
         val conFoto: Boolean = true,
+        val overrideW: Int? = null,
+        val overrideH: Int? = null,
     )
 
     private data class Token(val text: String, val hot: Boolean, val isBreak: Boolean = false)
@@ -48,8 +50,8 @@ object PlacaRenderer {
     private fun typefaceNormal() = Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL)
 
     fun render(o: Opciones): Bitmap {
-        val W = o.formato.w
-        val H = o.formato.h
+        val W = o.overrideW ?: o.formato.w
+        val H = o.overrideH ?: o.formato.h
         val bmp = Bitmap.createBitmap(W, H, Bitmap.Config.ARGB_8888)
         val c = Canvas(bmp)
 
