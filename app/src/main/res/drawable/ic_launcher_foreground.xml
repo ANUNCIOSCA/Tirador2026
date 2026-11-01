@@ -1,0 +1,13 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <!-- Hoja de periódico -->
+    <path android:fillColor="#FFFFFF"
+        android:pathData="M32,30h44a5,5 0,0 1,5 5v38a5,5 0,0 1,-5 5H32a5,5 0,0 1,-5 -5V35a5,5 0,0 1,5 -5z"/>
+    <!-- Franja roja (titular) -->
+    <path android:fillColor="#D61F2C"
+        android:pathData="M34,38h30v7H34z"/>
+    <!-- Líneas de texto -->
+    <path android:fillColor="#0F5A5A"
+        android:pathData="M34,52h40v3H34zM34,59h40v3H34zM34,66h26v3H34z"/>
+</vector>

@@ -1,29 +1,25 @@
-# Repórtalo 24 — App (Fase 1)
+# Repórtalo 24 — App Android nativa
 
-Buscador de noticias de Venezuela + generador de placas (imagen, y luego video).
+App nativa (Kotlin + Jetpack Compose) para buscar noticias de Venezuela, redactarlas
+en tono amarillista y generar placas (imagen) listas para publicar. **Sin servidor:**
+lee los RSS y genera todo en el teléfono.
 
-## Qué hace hoy (Fase 1)
-- **Buscar noticias** reales de medios VE por RSS (Efecto Cocuyo, La Patilla, Tal Cual, Runrun.es, El Nacional, El Pitazo).
-- **Armar la placa** amarillista (franja + título + subtítulo + copy + hashtags) con plantillas — sin IA todavía.
-- **Generador** de imagen con franja roja, categoría, palabra clave en rojo, PNG con foto y PNG transparente.
+## v1 (en construcción)
+- **Titulares:** busca noticias por RSS de medios VE (Efecto Cocuyo, La Patilla, Tal Cual, Runrun.es, El Nacional, El Pitazo) + sugerencias amarillistas.
+- **Generar:** placa nativa con franja, título (2 líneas autoajustadas), subtítulo con palabra en rojo, categoría, foto (zoom) y logo. PNG con foto y PNG transparente.
+- **Borradores:** guarda, edita y reabre tus placas.
+- **Marca:** nombre del medio, @usuario, logo, franja por defecto y gestión de fuentes RSS.
+- **Copia de seguridad:** respaldo JSON restaurable (borradores + fuentes + marca).
+- **Compartir desde otras apps:** compartes una noticia → arma la placa.
 
-## Estructura
-- `server.js` — servidor Node/Express: sirve la web y expone `/api/noticias`, `/api/redactar`, `/api/sugerencias`.
-- `public/buscador.html` — pantalla de búsqueda y armado.
-- `public/generador.html` — generador de placas.
+## Próximo (v2)
+- Redacción con IA (Claude) con la clave guardada en el teléfono.
+- Generador de video (texto sobre un video).
 
-## Probar local
-```bash
-npm install
-npm start
-# abrir http://localhost:3000/buscador.html
-```
+## Compilar
+APK release vía GitHub Actions (pestaña **Actions** → artefacto `Reportalo24-v1.0.0`),
+o en Android Studio con JDK 17 y Android SDK 35.
 
-## Desplegar en Render (gratis, desde el celular)
-1. Entra a render.com y crea una cuenta.
-2. New > Blueprint (o Web Service) y conecta este repositorio.
-3. Render detecta `render.yaml` / `package.json` y publica. Te da una dirección `https://...onrender.com`.
-4. Abre esa dirección + `/buscador.html`.
-
-## Próximo (Fase 1B)
-- Redacción con IA (Claude) usando el estilo del skill *Noticias Venezuela*. La clave se guarda como variable de entorno en Render (`ANTHROPIC_API_KEY`), nunca en el código.
+## Carpeta `web/`
+Versión web previa (buscador + servidor Node). Se conserva como referencia; la app
+nativa la reemplaza.
