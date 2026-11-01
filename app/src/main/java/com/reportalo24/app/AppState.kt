@@ -14,6 +14,7 @@ class AppState(private val context: Context) {
     val borradores = mutableStateListOf<Borrador>()
     val fuentes = mutableStateListOf<FuenteRss>()
     var perfil by mutableStateOf(PerfilMarca())
+    var config by mutableStateOf(AppConfig())
 
     // Transitorio: resultados de la última búsqueda de noticias
     val noticias = mutableStateListOf<Noticia>()
@@ -26,6 +27,7 @@ class AppState(private val context: Context) {
         borradores.clear(); borradores.addAll(BorradorStore.load(context))
         fuentes.clear(); fuentes.addAll(FuenteStore.load(context))
         perfil = PerfilStore.load(context)
+        config = ConfigStore.load(context)
     }
 
     private fun newId(): Long {
@@ -84,5 +86,10 @@ class AppState(private val context: Context) {
     fun updatePerfil(nuevo: PerfilMarca) {
         perfil = nuevo
         PerfilStore.save(context, nuevo)
+    }
+
+    fun updateConfig(nuevo: AppConfig) {
+        config = nuevo
+        ConfigStore.save(context, nuevo)
     }
 }

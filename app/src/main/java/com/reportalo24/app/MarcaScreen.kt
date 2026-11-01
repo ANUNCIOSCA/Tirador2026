@@ -16,6 +16,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -41,6 +42,9 @@ fun MarcaScreen(state: AppState, showMessage: (String) -> Unit) {
     var nombreMedio by remember { mutableStateOf(state.perfil.nombreMedio) }
     var usuario by remember { mutableStateOf(state.perfil.usuario) }
     var franjaDefault by remember { mutableStateOf(state.perfil.franjaDefault) }
+    var iaActiva by remember { mutableStateOf(state.config.iaActiva) }
+    var groqKey by remember { mutableStateOf(state.config.groqApiKey) }
+    var groqModel by remember { mutableStateOf(state.config.groqModel) }
     var nuevaFuenteNombre by remember { mutableStateOf("") }
     var nuevaFuenteUrl by remember { mutableStateOf("") }
 
@@ -105,6 +109,36 @@ fun MarcaScreen(state: AppState, showMessage: (String) -> Unit) {
                         nuevaFuenteNombre = ""; nuevaFuenteUrl = ""; showMessage("Fuente agregada")
                     }
                 }, modifier = Modifier.fillMaxWidth()) { Text("➕ Agregar fuente") }
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+            Column(Modifier.padding(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("🤖 Redacción con IA (Groq)", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
+                    Switch(checked = iaActiva, onCheckedChange = { iaActiva = it })
+                }
+                Spacer(Modifier.height(4.dp))
+                Text("Con la IA activada, al armar una placa la noticia se redacta sola en tono amarillista. La clave se guarda solo en tu teléfono.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (iaActiva) {
+                    Spacer(Modifier.height(10.dp))
+                    OutlinedTextField(value = groqKey, onValueChange = { groqKey = it }, label = { Text("API Key de Groq (gsk_...)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    Spacer(Modifier.height(4.dp))
+                    Text("Gratis en console.groq.com/keys", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(10.dp))
+                    Text("Modelo", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row {
+                        listOf("llama-3.3-70b-versatile" to "Mejor", "llama-3.1-8b-instant" to "Rápido").forEach { (m, etiqueta) ->
+                            FilterChip(selected = groqModel == m, onClick = { groqModel = m }, label = { Text(etiqueta) }, modifier = Modifier.padding(end = 8.dp))
+                        }
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
+                Button(onClick = {
+                    state.updateConfig(AppConfig(iaActiva = iaActiva, groqApiKey = groqKey.trim(), groqModel = groqModel))
+                    showMessage(if (iaActiva && groqKey.isBlank()) "Activa la IA pero falta la clave de Groq" else "IA configurada")
+                }, modifier = Modifier.fillMaxWidth()) { Text("💾 Guardar IA") }
             }
         }
         Spacer(Modifier.height(12.dp))
