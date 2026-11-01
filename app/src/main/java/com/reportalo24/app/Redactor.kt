@@ -32,6 +32,12 @@ object Redactor {
         "DEPORTE" to "DEPORTES",
         "INTERNACIONAL" to "INTERNACIONAL",
         "NACIONAL" to "REPORTE DEL DÍA",
+        "SUCESOS" to "SUCESOS",
+        "FARÁNDULA" to "FARÁNDULA",
+        "SALUD" to "ALERTA DE SALUD",
+        "TECNOLOGÍA" to "TECNOLOGÍA",
+        "VIRAL" to "SE HIZO VIRAL",
+        "OPINIÓN" to "OPINIÓN",
         "NINGUNA" to "REPORTE DEL DÍA",
     )
 

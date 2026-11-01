@@ -36,6 +36,8 @@ object PlacaRenderer {
         val usuario: String = "@reportalo24",
         val posicion: Int = 50,
         val subSize: Int = 38,
+        val tituloSize1: Int = 0,
+        val tituloSize2: Int = 0,
         val imgZoom: Float = 1f,
         val imgOffX: Float = 0f,
         val imgOffY: Float = 0f,
@@ -86,8 +88,10 @@ object PlacaRenderer {
         val tituloUp = o.titulo.trim().uppercase()
         val (l1Text, l2Text) = splitTitle(tituloUp, titleMaxW)
         val startTitle = if (W >= 1080 && H >= 1600) 92 else 78
-        val l1 = fitSingle(l1Text, startTitle, 24, titleMaxW)
-        val l2 = fitSingle(l2Text, startTitle, 24, titleMaxW)
+        val start1 = if (o.tituloSize1 > 0) o.tituloSize1 else startTitle
+        val start2 = if (o.tituloSize2 > 0) o.tituloSize2 else startTitle
+        val l1 = fitSingle(l1Text, start1, 24, titleMaxW)
+        val l2 = fitSingle(l2Text, start2, 24, titleMaxW)
         val hasL2 = l2Text.isNotBlank()
 
         var titleBottom = subTop - subLineH - 24f
