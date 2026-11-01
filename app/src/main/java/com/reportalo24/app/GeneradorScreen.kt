@@ -10,6 +10,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -49,6 +50,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -82,6 +84,7 @@ fun GeneradorScreen(
     var imagenUri by remember(inicial.id) { mutableStateOf(inicial.imagenUri) }
     var imgZoom by remember(inicial.id) { mutableStateOf(1f) }
     var showZoom by remember { mutableStateOf(false) }
+    var redactandoIA by remember { mutableStateOf(false) }
 
     val foto = remember(imagenUri) { ImageIO.loadBitmap(context, imagenUri.ifBlank { null }) }
     val logo = remember(state.perfil.logoUri) { ImageIO.loadBitmap(context, state.perfil.logoUri.ifBlank { null }) }
@@ -128,6 +131,26 @@ fun GeneradorScreen(
         val name = "R24_${formato.w}x${formato.h}_${System.currentTimeMillis()}"
         if (ImageIO.saveToGallery(context, bmp, name)) showMessage("✅ Guardada en la galería (Pictures/Reportalo24)")
         else showMessage("No se pudo guardar. Intenta compartir en su lugar.")
+    }
+
+    fun redactarConIA(soloTitulo: Boolean) {
+        if (!(state.config.iaActiva && state.config.groqApiKey.isNotBlank())) {
+            showMessage("Activa la IA y pega tu clave en la pestaña Marca"); return
+        }
+        if (titulo.isBlank() && subtitulo.isBlank()) { showMessage("Escribe algo primero"); return }
+        scope.launch {
+            redactandoIA = true
+            val res = runCatching {
+                GroqRedactor.redactar(state.config, titulo, subtitulo, inicial.fuente, state.perfil.usuario, if (soloTitulo) titulo else "")
+            }
+            redactandoIA = false
+            res.onSuccess { r ->
+                titulo = r.titulo
+                franja = r.franja
+                if (!soloTitulo) { subtitulo = r.subtitulo; categoria = r.categoria }
+                showMessage(if (soloTitulo) "Nuevo título propuesto" else "Redactado con IA")
+            }.onFailure { showMessage("IA no disponible: ${it.message?.take(50)}") }
+        }
     }
 
     val videoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
@@ -178,6 +201,18 @@ fun GeneradorScreen(
             }
         }
         Spacer(Modifier.height(12.dp))
+
+        if (state.config.iaActiva) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { redactarConIA(false) }, enabled = !redactandoIA, modifier = Modifier.weight(1f)) {
+                    Text(if (redactandoIA) "Redactando..." else "✨ Redactar con IA")
+                }
+                OutlinedButton(onClick = { redactarConIA(true) }, enabled = !redactandoIA, modifier = Modifier.weight(1f)) {
+                    Text("🔄 Otro título")
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+        }
 
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
             Column(Modifier.padding(16.dp)) {
@@ -266,29 +301,35 @@ fun GeneradorScreen(
 
     if (showZoom) {
         Dialog(onDismissRequest = { showZoom = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-            Surface(Modifier.fillMaxSize(), color = Color(0xF21A1A1A)) {
-                Column(
-                    Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text("Vista en vivo", color = Color.White, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            Box(Modifier.fillMaxSize().background(Color(0xF2101010))) {
+                Column(Modifier.fillMaxSize()) {
+                    Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Vista en vivo · pellizca con los dedos para agrandar", color = Color.White, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
                         TextButton(onClick = { showZoom = false }) { Text("Cerrar", color = Color.White) }
                     }
-                    Spacer(Modifier.height(8.dp))
-                    preview?.let {
-                        Image(it.asImageBitmap(), contentDescription = "Vista previa grande", modifier = Modifier.fillMaxWidth(0.82f), contentScale = ContentScale.FillWidth)
+                    Box(
+                        Modifier.weight(1f).fillMaxWidth().pointerInput(Unit) {
+                            detectTransformGestures { _, _, zoom, _ ->
+                                if (zoom != 1f) {
+                                    tituloSize1 = (tituloSize1 * zoom).coerceIn(24f, 120f)
+                                    tituloSize2 = (tituloSize2 * zoom).coerceIn(24f, 120f)
+                                }
+                            }
+                        },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        preview?.let {
+                            Image(it.asImageBitmap(), contentDescription = "Vista previa grande", modifier = Modifier.fillMaxSize().padding(10.dp), contentScale = ContentScale.Fit)
+                        }
                     }
-                    Spacer(Modifier.height(16.dp))
-                    Text("🔠 Tamaño línea 1: ${tituloSize1.toInt()}", color = Color.White, style = MaterialTheme.typography.bodySmall)
-                    Slider(value = tituloSize1, onValueChange = { tituloSize1 = it }, valueRange = 24f..120f)
-                    Text("🔠 Tamaño línea 2: ${tituloSize2.toInt()}", color = Color.White, style = MaterialTheme.typography.bodySmall)
-                    Slider(value = tituloSize2, onValueChange = { tituloSize2 = it }, valueRange = 24f..120f)
-                    Text("🔡 Tamaño subtítulo: ${subSize.toInt()}", color = Color.White, style = MaterialTheme.typography.bodySmall)
-                    Slider(value = subSize, onValueChange = { subSize = it }, valueRange = 24f..54f)
-                    Text("↕️ Posición del texto: ${posicion.toInt()}", color = Color.White, style = MaterialTheme.typography.bodySmall)
-                    Slider(value = posicion, onValueChange = { posicion = it }, valueRange = 0f..100f)
-                    Spacer(Modifier.height(16.dp))
+                    Column(Modifier.fillMaxWidth().background(Color(0xE6000000)).padding(horizontal = 16.dp, vertical = 10.dp)) {
+                        Text("🔠 Línea 1: ${tituloSize1.toInt()}     🔠 Línea 2: ${tituloSize2.toInt()}", color = Color.White, style = MaterialTheme.typography.bodySmall)
+                        Slider(value = tituloSize1, onValueChange = { tituloSize1 = it }, valueRange = 24f..120f)
+                        Slider(value = tituloSize2, onValueChange = { tituloSize2 = it }, valueRange = 24f..120f)
+                        Text("🔡 Subtítulo: ${subSize.toInt()}     ↕️ Posición: ${posicion.toInt()}", color = Color.White, style = MaterialTheme.typography.bodySmall)
+                        Slider(value = subSize, onValueChange = { subSize = it }, valueRange = 24f..54f)
+                        Slider(value = posicion, onValueChange = { posicion = it }, valueRange = 0f..100f)
+                    }
                 }
             }
         }

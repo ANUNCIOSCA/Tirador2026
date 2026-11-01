@@ -26,19 +26,20 @@ object Redactor {
         Cat("NACIONAL", listOf("caracas", "maracaibo", "valencia", "apagón", "apagon", "hospital", "servicios", "agua", "luz", "sucesos", "detenido")),
     )
 
+    // La franja es una etiqueta de URGENCIA, distinta del nombre de la categoría y del título.
     private val FRANJAS = mapOf(
         "POLÍTICA" to "ÚLTIMA HORA",
         "ECONOMÍA" to "ALERTA ECONÓMICA",
-        "DEPORTE" to "DEPORTES",
-        "INTERNACIONAL" to "INTERNACIONAL",
+        "DEPORTE" to "LO ÚLTIMO",
+        "INTERNACIONAL" to "URGENTE",
         "NACIONAL" to "REPORTE DEL DÍA",
-        "SUCESOS" to "SUCESOS",
-        "FARÁNDULA" to "FARÁNDULA",
-        "SALUD" to "ALERTA DE SALUD",
-        "TECNOLOGÍA" to "TECNOLOGÍA",
+        "SUCESOS" to "ALERTA ROJA",
+        "FARÁNDULA" to "EXCLUSIVA",
+        "SALUD" to "ATENCIÓN",
+        "TECNOLOGÍA" to "LO NUEVO",
         "VIRAL" to "SE HIZO VIRAL",
         "OPINIÓN" to "OPINIÓN",
-        "NINGUNA" to "REPORTE DEL DÍA",
+        "NINGUNA" to "ÚLTIMA HORA",
     )
 
     fun detectarCat(txt: String): String {

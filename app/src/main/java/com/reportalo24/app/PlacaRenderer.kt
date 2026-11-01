@@ -364,7 +364,7 @@ object PlacaRenderer {
         val h = fit * 1.9f
         val tw = p.measureText(cat)
         val bw = min(tw + padX * 2, maxW)
-        val top = 160f; val right = 40f
+        val top = 90f; val right = 40f
         val bx = W - right - bw
         val bg = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(214, 31, 44); setShadowLayer(10f, 0f, 0f, Color.argb(115, 0, 0, 0)) }
         c.drawRoundRect(RectF(bx, top, bx + bw, top + h), 12f, 12f, bg)
