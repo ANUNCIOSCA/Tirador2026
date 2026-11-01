@@ -12,12 +12,13 @@ android {
         applicationId = "com.reportalo24.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 6
-        versionName = "1.5.0"
+        versionCode = 7
+        versionName = "1.6.0"
     }
 
     signingConfigs {
         create("release") {
+            // Llave de firma opcional vía variables de entorno (keystore fuera del repo).
             val ks = System.getenv("R24_KEYSTORE")
             if (ks != null && file(ks).exists()) {
                 storeFile = file(ks)

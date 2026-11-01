@@ -19,6 +19,11 @@ object Backup {
             put("borradores", JSONArray(state.borradores.map { BorradorStore.toJson(it) }))
             put("fuentes", JSONArray(state.fuentes.map { FuenteStore.toJson(it) }))
             put("perfil", PerfilStore.toJson(state.perfil))
+            put("config", JSONObject().apply {
+                put("iaActiva", state.config.iaActiva)
+                put("groqApiKey", state.config.groqApiKey)
+                put("groqModel", state.config.groqModel)
+            })
         }
         val dir = File(context.cacheDir, "compartir").apply { mkdirs() }
         val file = File(dir, "reportalo24_backup.json")
@@ -33,6 +38,16 @@ object Backup {
         val root = JSONObject(text)
 
         root.optJSONObject("perfil")?.let { state.updatePerfil(PerfilStore.fromJson(it)) }
+
+        root.optJSONObject("config")?.let {
+            state.updateConfig(
+                AppConfig(
+                    iaActiva = it.optBoolean("iaActiva", false),
+                    groqApiKey = it.optString("groqApiKey", ""),
+                    groqModel = it.optString("groqModel", "llama-3.3-70b-versatile"),
+                )
+            )
+        }
 
         root.optJSONArray("fuentes")?.let { arr ->
             val fuentes = ArrayList<FuenteRss>()

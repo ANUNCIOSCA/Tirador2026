@@ -45,10 +45,17 @@ object GroqRedactor {
         EMOCIÓN SEGÚN EL TEMA: Política → ira/indignación · Economía → ansiedad/urgencia ·
         Sucesos → miedo/alerta (sin morbo gratuito) · Salud → empatía · Diáspora → esperanza+nostalgia.
 
+        REGLAS DE LONGITUD (muy importante):
+        - El TÍTULO debe ser CORTO, con gancho y preciso: 3 a 6 palabras. Si te sale largo, córtalo.
+          Un título largo arruina la placa. Juzga y engancha, no describas ni cuentes todo.
+        - La FRANJA y el TÍTULO dicen cosas DISTINTAS. La franja es solo una etiqueta de urgencia.
+        - La FRANJA NO puede ser igual al nombre de la categoría (no pongas "INTERNACIONAL" de franja).
+
         Responde ÚNICAMENTE con un objeto JSON válido, sin texto adicional, con estas claves:
-        - "franja": el TEMA en MAYÚSCULAS, idealmente 18 a 20 caracteres (ej: "APAGÓN EN OCCIDENTE").
-        - "titulo": la SENTENCIA emocional de 4 a 8 palabras que JUZGA y señala al responsable
-          (no describe), en MAYÚSCULAS, máximo 2 líneas; separa las líneas con \n.
+        - "franja": etiqueta de URGENCIA corta, 1 a 3 palabras, en MAYÚSCULAS, tipo "ÚLTIMA HORA",
+          "ALERTA", "URGENTE", "EXCLUSIVA", "ATENCIÓN". Distinta del título y de la categoría.
+        - "titulo": SENTENCIA corta y punzante de 3 a 6 palabras que JUZGA y señala al responsable,
+          en MAYÚSCULAS, máximo 2 líneas cortas; separa las líneas con \n.
         - "subtitulo": el dato que duele, 1 o 2 frases, con cifra o fecha atribuida; NO repite el
           título; envuelve la palabra o cifra clave entre **dobles asteriscos**.
         - "categoria": una sola de NACIONAL, ECONOMÍA, POLÍTICA, DEPORTE, INTERNACIONAL.
@@ -64,16 +71,20 @@ object GroqRedactor {
         resumen: String,
         fuente: String,
         usuario: String,
+        evitarTitulo: String = "",
     ): Redactor.Resultado = withContext(Dispatchers.IO) {
+        val extra = if (evitarTitulo.isNotBlank())
+            "\nNo uses este título (dame uno DISTINTO y más corto): \"$evitarTitulo\""
+        else ""
         val body = JSONObject().apply {
             put("model", config.groqModel)
-            put("temperature", 0.85)
+            put("temperature", if (evitarTitulo.isNotBlank()) 1.0 else 0.85)
             put("response_format", JSONObject().put("type", "json_object"))
             put("messages", JSONArray().apply {
                 put(JSONObject().put("role", "system").put("content", SYSTEM))
                 put(JSONObject().put("role", "user").put(
                     "content",
-                    "Titular: $titulo\nResumen: $resumen\nFuente: ${fuente.ifBlank { "no indicada" }}\nUsuario del medio: $usuario",
+                    "Titular: $titulo\nResumen: $resumen\nFuente: ${fuente.ifBlank { "no indicada" }}\nUsuario del medio: $usuario$extra",
                 ))
             })
         }
