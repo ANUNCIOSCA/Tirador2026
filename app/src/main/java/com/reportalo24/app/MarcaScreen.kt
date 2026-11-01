@@ -117,28 +117,28 @@ fun MarcaScreen(state: AppState, showMessage: (String) -> Unit) {
             Column(Modifier.padding(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("🤖 Redacción con IA (Groq)", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
-                    Switch(checked = iaActiva, onCheckedChange = { iaActiva = it })
+                    Switch(checked = iaActiva, onCheckedChange = { iaActiva = it; state.updateConfig(AppConfig(it, groqKey.trim(), groqModel)) })
                 }
                 Spacer(Modifier.height(4.dp))
                 Text("Con la IA activada, al armar una placa la noticia se redacta sola en tono amarillista. La clave se guarda solo en tu teléfono.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (iaActiva) {
                     Spacer(Modifier.height(10.dp))
-                    OutlinedTextField(value = groqKey, onValueChange = { groqKey = it }, label = { Text("API Key de Groq (gsk_...)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = groqKey, onValueChange = { groqKey = it; state.updateConfig(AppConfig(iaActiva, it.trim(), groqModel)) }, label = { Text("API Key de Groq (gsk_...)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                     Spacer(Modifier.height(4.dp))
-                    Text("Gratis en console.groq.com/keys", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Gratis en console.groq.com/keys · se guarda solo", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(10.dp))
                     Text("Modelo", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Row {
                         listOf("llama-3.3-70b-versatile" to "Mejor", "llama-3.1-8b-instant" to "Rápido").forEach { (m, etiqueta) ->
-                            FilterChip(selected = groqModel == m, onClick = { groqModel = m }, label = { Text(etiqueta) }, modifier = Modifier.padding(end = 8.dp))
+                            FilterChip(selected = groqModel == m, onClick = { groqModel = m; state.updateConfig(AppConfig(iaActiva, groqKey.trim(), m)) }, label = { Text(etiqueta) }, modifier = Modifier.padding(end = 8.dp))
                         }
                     }
                 }
                 Spacer(Modifier.height(10.dp))
                 Button(onClick = {
                     state.updateConfig(AppConfig(iaActiva = iaActiva, groqApiKey = groqKey.trim(), groqModel = groqModel))
-                    showMessage(if (iaActiva && groqKey.isBlank()) "Activa la IA pero falta la clave de Groq" else "IA configurada")
-                }, modifier = Modifier.fillMaxWidth()) { Text("💾 Guardar IA") }
+                    showMessage(if (iaActiva && groqKey.isBlank()) "Falta pegar la clave de Groq" else "✅ IA lista y guardada")
+                }, modifier = Modifier.fillMaxWidth()) { Text("✅ Confirmar IA") }
             }
         }
         Spacer(Modifier.height(12.dp))
