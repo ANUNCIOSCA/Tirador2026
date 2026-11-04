@@ -44,7 +44,10 @@ object Backup {
                 AppConfig(
                     iaActiva = it.optBoolean("iaActiva", false),
                     groqApiKey = it.optString("groqApiKey", ""),
-                    groqModel = it.optString("groqModel", "llama-3.3-70b-versatile"),
+                    // Las copias viejas traen modelos que Groq ya apagó: se pasan al vigente.
+                    groqModel = it.optString("groqModel", ModelosGroq.DEFECTO).let { m ->
+                        if (ModelosGroq.vigente(m)) m else ModelosGroq.DEFECTO
+                    },
                 )
             )
         }

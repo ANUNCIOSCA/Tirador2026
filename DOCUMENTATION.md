@@ -120,7 +120,17 @@ Dos caminos:
 - La app llama a `https://api.groq.com/openai/v1/chat/completions` (compatible con OpenAI).
 - La **clave** (`gsk_...`) se obtiene gratis en `https://console.groq.com/keys` y se
   guarda **solo en el teléfono** (`ConfigStore`, SharedPreferences `r24_config`).
-- Modelos: `llama-3.3-70b-versatile` (mejor) o `llama-3.1-8b-instant` (rápido).
+- Modelos (desde 1.6.1): `openai/gpt-oss-120b` (mejor) u `openai/gpt-oss-20b` (rápido).
+  Groq apagó `llama-3.3-70b-versatile` y `llama-3.1-8b-instant` el 16/08/2026; la app migra
+  sola cualquier modelo guardado que ya no exista (`ModelosGroq` en `Models.kt`).
+- Límites de Groq: si responde 429, la app espera el `retry-after` (máx. 25 s) y reintenta una vez.
+  Si Groq rechaza un parámetro (400), reintenta en modo simple y extrae el JSON del texto.
+- Modo **Redactar con captura** (1.6.1): pestaña Titulares → "Redactar desde texto o captura".
+  Lee la captura con OCR en el teléfono (ML Kit, `Ocr.kt`) y redacta según las instrucciones,
+  sin verificar nada. La verificación con fuentes llegará como modo aparte, solo si se pide.
+- Firma fija (1.6.1): el workflow firma con los secretos `R24_KEYSTORE_B64`,
+  `R24_KEYSTORE_PASSWORD`, `R24_KEY_ALIAS` y `R24_KEY_PASSWORD` si existen; si no, usa la llave debug.
+  `status.txt` de la rama de salida dice `FIRMA=fija` o `FIRMA=debug`.
 - El *prompt editorial* está en `GroqRedactor.kt` (ver sección 8).
 - Si la IA falla o no hay internet, la app cae a las **plantillas** (`Redactor.kt`).
 
