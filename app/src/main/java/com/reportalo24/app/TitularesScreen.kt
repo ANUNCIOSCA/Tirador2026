@@ -1,5 +1,9 @@
 package com.reportalo24.app
 
+import android.graphics.BitmapFactory
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -31,6 +35,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
@@ -47,6 +52,13 @@ fun TitularesScreen(state: AppState, onArmar: (Borrador) -> Unit, showMessage: (
     var subtituloM by remember { mutableStateOf("") }
     var catM by remember { mutableStateOf("NINGUNA") }
     var cargandoIA by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+
+    // Modo "Redactar": texto pegado o captura leída con OCR + instrucciones libres.
+    var textoLibre by remember { mutableStateOf("") }
+    var instrucciones by remember { mutableStateOf("") }
+    var leyendoCaptura by remember { mutableStateOf(false) }
+    var redactandoLibre by remember { mutableStateOf(false) }
 
     fun construir(res: Redactor.Resultado, fuente: String, link: String) = Borrador(
         franja = res.franja,
@@ -58,6 +70,56 @@ fun TitularesScreen(state: AppState, onArmar: (Borrador) -> Unit, showMessage: (
         fuente = fuente,
         link = link,
     )
+
+    val capturaPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            leyendoCaptura = true
+            val leido = runCatching {
+                val bmp = context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) }
+                    ?: error("no se pudo abrir la imagen")
+                Ocr.leer(bmp)
+            }
+            leyendoCaptura = false
+            leido.onSuccess { t ->
+                if (t.isBlank()) {
+                    showMessage("No encontré texto en la captura")
+                } else {
+                    textoLibre = if (textoLibre.isBlank()) t.trim() else textoLibre.trim() + "\n\n" + t.trim()
+                    showMessage("✅ Texto leído. Revísalo antes de redactar")
+                }
+            }.onFailure { showMessage("No pude leer la captura") }
+        }
+    }
+
+    fun redactarLibre() {
+        val texto = textoLibre.trim()
+        if (texto.isBlank()) { showMessage("Pega el texto o sube una captura"); return }
+        val lineas = texto.lines().filter { it.isNotBlank() }
+        val primera = lineas.firstOrNull().orEmpty().take(200)
+        val resto = lineas.drop(1).joinToString(" ")
+        val usaIA = state.config.iaActiva && state.config.groqApiKey.isNotBlank()
+        if (!usaIA) {
+            onArmar(construir(Redactor.redactar(primera, resto, "", null, state.perfil.usuario), "", ""))
+            showMessage("IA apagada: usé la plantilla")
+            return
+        }
+        scope.launch {
+            redactandoLibre = true
+            val res = runCatching {
+                GroqRedactor.redactar(
+                    state.config, "", texto.take(3500), "", state.perfil.usuario,
+                    instrucciones = instrucciones, modoLibre = true,
+                )
+            }
+            redactandoLibre = false
+            val r = res.getOrElse {
+                showMessage("IA no disponible (${it.message?.take(50) ?: "error"}). Usé plantilla.")
+                Redactor.redactar(primera, resto, "", null, state.perfil.usuario)
+            }
+            onArmar(construir(r, "", ""))
+        }
+    }
 
     fun armarDesde(titulo: String, resumen: String, fuente: String, link: String) {
         val usaIA = state.config.iaActiva && state.config.groqApiKey.isNotBlank()
@@ -137,6 +199,45 @@ fun TitularesScreen(state: AppState, onArmar: (Borrador) -> Unit, showMessage: (
                         Spacer(Modifier.height(8.dp))
                         Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                     }
+                }
+            }
+        }
+
+        item {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                Column(Modifier.padding(16.dp)) {
+                    Text("🧾 Redactar desde texto o captura", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                    Text("Pega el texto o sube una captura. La IA lo redacta tal como le pidas.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(10.dp))
+                    OutlinedTextField(
+                        value = textoLibre,
+                        onValueChange = { textoLibre = it },
+                        label = { Text("Texto de la noticia") },
+                        minLines = 4,
+                        maxLines = 10,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = { capturaPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                        enabled = !leyendoCaptura && !redactandoLibre,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text(if (leyendoCaptura) "Leyendo captura..." else "📷 Subir captura") }
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = instrucciones,
+                        onValueChange = { instrucciones = it },
+                        label = { Text("Instrucciones (opcional)") },
+                        placeholder = { Text("Ej: más corto, tono sarcástico, para Instagram") },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    Button(
+                        onClick = { redactarLibre() },
+                        enabled = !redactandoLibre && !leyendoCaptura,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text(if (redactandoLibre) "Redactando..." else "✨ Redactar como te lo pido") }
+                    Text("No busca ni verifica nada: redacta con lo que tú entregas.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }

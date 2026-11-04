@@ -125,10 +125,14 @@ object ConfigStore {
 
     fun load(context: Context): AppConfig {
         val p = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val guardado = p.getString("groqModel", ModelosGroq.DEFECTO) ?: ModelosGroq.DEFECTO
+        // Si el modelo guardado ya no existe en Groq, se migra solo al vigente.
+        val modelo = if (ModelosGroq.vigente(guardado)) guardado else ModelosGroq.DEFECTO
+        if (modelo != guardado) p.edit().putString("groqModel", modelo).apply()
         return AppConfig(
             iaActiva = p.getBoolean("iaActiva", false),
             groqApiKey = p.getString("groqApiKey", "") ?: "",
-            groqModel = p.getString("groqModel", "llama-3.3-70b-versatile") ?: "llama-3.3-70b-versatile",
+            groqModel = modelo,
         )
     }
 
