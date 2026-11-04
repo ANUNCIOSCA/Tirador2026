@@ -12,8 +12,8 @@ android {
         applicationId = "com.reportalo24.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 7
-        versionName = "1.6.0"
+        versionCode = 8
+        versionName = "1.6.1"
     }
 
     signingConfigs {
@@ -67,4 +67,6 @@ dependencies {
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
+    // OCR en el teléfono (lee capturas de pantalla). Modelo latino incluido en la app, sin internet.
+    implementation("com.google.mlkit:text-recognition:16.0.1")
 }

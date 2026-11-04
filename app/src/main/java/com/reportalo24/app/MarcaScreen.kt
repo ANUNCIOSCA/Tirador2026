@@ -129,7 +129,7 @@ fun MarcaScreen(state: AppState, showMessage: (String) -> Unit) {
                     Spacer(Modifier.height(10.dp))
                     Text("Modelo", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Row {
-                        listOf("llama-3.3-70b-versatile" to "Mejor", "llama-3.1-8b-instant" to "Rápido").forEach { (m, etiqueta) ->
+                        listOf(ModelosGroq.DEFECTO to "Mejor", ModelosGroq.RAPIDO to "Rápido").forEach { (m, etiqueta) ->
                             FilterChip(selected = groqModel == m, onClick = { groqModel = m; state.updateConfig(AppConfig(iaActiva, groqKey.trim(), m)) }, label = { Text(etiqueta) }, modifier = Modifier.padding(end = 8.dp))
                         }
                     }

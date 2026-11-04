@@ -7,14 +7,24 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 
+/** Error de la API de Groq con un mensaje corto, pensado para mostrarse en pantalla. */
+class GroqError(val codigo: Int, mensaje: String, val cuerpo: String = "") : RuntimeException(mensaje)
+
 /**
  * Redacción amarillista con IA vía la API de Groq (compatible con OpenAI).
  * La clave se guarda solo en el teléfono. Si falla, la pantalla cae a plantillas.
- * Regla sagrada: no inventa datos; solo pone con filo lo que trae el titular.
+ * Regla sagrada: no inventa datos; solo pone con filo lo que trae el material.
+ *
+ * v1.6.1: modelos gpt-oss (los llama anteriores fueron apagados por Groq), reintento
+ * automático cuando Groq responde 429 (límite) y modo simple si el modo JSON falla.
  */
 object GroqRedactor {
 
     private const val ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
+
+    // Tope de salida: el plan gratis de Groq limita los tokens por minuto, y el tope
+    // pedido cuenta para ese límite. 1500 alcanza de sobra para el JSON de una pieza.
+    private const val MAX_SALIDA = 1500
 
     private val SYSTEM = """
         Eres el editor de mesa de Repórtalo 24 (R24), un medio venezolano de DENUNCIA.
@@ -58,11 +68,25 @@ object GroqRedactor {
           en MAYÚSCULAS, máximo 2 líneas cortas; separa las líneas con \n.
         - "subtitulo": el dato que duele, 1 o 2 frases, con cifra o fecha atribuida; NO repite el
           título; envuelve la palabra o cifra clave entre **dobles asteriscos**.
-        - "categoria": una sola de NACIONAL, ECONOMÍA, POLÍTICA, DEPORTE, INTERNACIONAL.
+        - "categoria": una sola de NACIONAL, INTERNACIONAL, POLÍTICA, ECONOMÍA, SUCESOS, DEPORTE,
+          FARÁNDULA, SALUD, TECNOLOGÍA, VIRAL, OPINIÓN.
         - "copy": 2 a 4 líneas para Instagram, con indignación, 1 o 2 emojis y un cierre que
           invite a comentar y compartir.
         - "hashtags": arreglo de 8 a 12 hashtags en español de Venezuela.
         Todo en español de Venezuela. La ironía va por yuxtaposición (contraste), nunca por insulto.
+    """.trimIndent()
+
+    /** Se suma al SYSTEM cuando Moreno entrega el material él mismo (texto o captura). */
+    private val MODO_LIBRE = """
+        MODO REDACTAR (orden directa de Moreno):
+        - El material puede venir de una captura de pantalla leída por OCR. Ignora el ruido de la
+          interfaz (nombres de usuario, "me gusta", botones, horas, "Seguir", "Responder") y
+          quédate con la noticia.
+        - Redacta TAL COMO Moreno lo pide. No verificas, no buscas, no cuestionas ni corriges sus
+          datos: el material que entrega es tu verdad de trabajo.
+        - Si Moreno da INSTRUCCIONES, mandan sobre el estilo por defecto (tono, largo, formato).
+          Lo único que no cambia: no inventar hechos y no dejar marcas tipo [PENDIENTE] dentro del texto.
+        - Lo que no esté en el material no se inventa: se omite.
     """.trimIndent()
 
     suspend fun redactar(
@@ -72,46 +96,114 @@ object GroqRedactor {
         fuente: String,
         usuario: String,
         evitarTitulo: String = "",
+        instrucciones: String = "",
+        modoLibre: Boolean = false,
     ): Redactor.Resultado = withContext(Dispatchers.IO) {
-        val extra = if (evitarTitulo.isNotBlank())
-            "\nNo uses este título (dame uno DISTINTO y más corto): \"$evitarTitulo\""
-        else ""
+        val user = StringBuilder()
+        if (modoLibre) {
+            user.append("MATERIAL ENTREGADO POR MORENO:\n").append(resumen)
+        } else {
+            user.append("Titular: $titulo\nResumen: $resumen\nFuente: ${fuente.ifBlank { "no indicada" }}")
+        }
+        user.append("\nUsuario del medio: $usuario")
+        if (instrucciones.isNotBlank()) {
+            user.append("\nINSTRUCCIONES DE MORENO: ").append(instrucciones.trim())
+        }
+        if (evitarTitulo.isNotBlank()) {
+            user.append("\nNo uses este título (dame uno DISTINTO y más corto): \"$evitarTitulo\"")
+        }
+        val system = if (modoLibre) SYSTEM + "\n\n" + MODO_LIBRE else SYSTEM
+        val temperatura = if (evitarTitulo.isNotBlank()) 1.0 else 0.85
+        val content = llamar(config, system, user.toString(), temperatura)
+        parseResultado(extraerJson(content), titulo, resumen, fuente)
+    }
+
+    /**
+     * Primero intenta con los parámetros optimizados (modo JSON, razonamiento bajo, tope de salida).
+     * Si Groq rechaza algún parámetro (400), reintenta en modo simple y extrae el JSON del texto.
+     */
+    private fun llamar(config: AppConfig, system: String, user: String, temperatura: Double): String {
+        var ultimo: GroqError? = null
+        for (optimizado in listOf(true, false)) {
+            try {
+                return enviar(config, system, user, temperatura, optimizado)
+            } catch (e: GroqError) {
+                ultimo = e
+                val modeloMalo = e.cuerpo.contains("decommission", true) || e.cuerpo.contains("model_not_found", true)
+                val parametroRechazado = e.codigo == 400 && !modeloMalo
+                if (!(optimizado && parametroRechazado)) break
+            }
+        }
+        throw ultimo ?: GroqError(0, "sin respuesta de Groq")
+    }
+
+    private fun enviar(config: AppConfig, system: String, user: String, temperatura: Double, optimizado: Boolean): String {
         val body = JSONObject().apply {
             put("model", config.groqModel)
-            put("temperature", if (evitarTitulo.isNotBlank()) 1.0 else 0.85)
-            put("response_format", JSONObject().put("type", "json_object"))
-            put("messages", JSONArray().apply {
-                put(JSONObject().put("role", "system").put("content", SYSTEM))
-                put(JSONObject().put("role", "user").put(
-                    "content",
-                    "Titular: $titulo\nResumen: $resumen\nFuente: ${fuente.ifBlank { "no indicada" }}\nUsuario del medio: $usuario$extra",
-                ))
-            })
-        }
-
-        val conn = (URL(ENDPOINT).openConnection() as HttpURLConnection).apply {
-            requestMethod = "POST"
-            connectTimeout = 20000
-            readTimeout = 30000
-            doOutput = true
-            setRequestProperty("Content-Type", "application/json")
-            setRequestProperty("Authorization", "Bearer ${config.groqApiKey}")
-        }
-
-        try {
-            conn.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
-            if (conn.responseCode !in 200..299) {
-                val err = conn.errorStream?.bufferedReader()?.use { it.readText() }.orEmpty()
-                throw RuntimeException("Groq ${conn.responseCode}: ${err.take(200)}")
+            put("temperature", temperatura)
+            if (optimizado) {
+                put("response_format", JSONObject().put("type", "json_object"))
+                put("reasoning_effort", "low")
+                put("max_completion_tokens", MAX_SALIDA)
+            } else {
+                put("max_tokens", MAX_SALIDA)
             }
-            val resp = conn.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
-            val content = JSONObject(resp)
-                .getJSONArray("choices").getJSONObject(0)
-                .getJSONObject("message").getString("content")
-            parseResultado(content, titulo, resumen, fuente)
-        } finally {
-            conn.disconnect()
+            put("messages", JSONArray().apply {
+                put(JSONObject().put("role", "system").put("content", system))
+                put(JSONObject().put("role", "user").put("content", user))
+            })
+        }.toString().toByteArray(Charsets.UTF_8)
+
+        var reintentos429 = 0
+        while (true) {
+            val conn = (URL(ENDPOINT).openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                connectTimeout = 20000
+                readTimeout = 45000
+                doOutput = true
+                setRequestProperty("Content-Type", "application/json")
+                setRequestProperty("Authorization", "Bearer ${config.groqApiKey}")
+            }
+            try {
+                conn.outputStream.use { it.write(body) }
+                val code = conn.responseCode
+                if (code in 200..299) {
+                    val resp = conn.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+                    val content = JSONObject(resp)
+                        .getJSONArray("choices").getJSONObject(0)
+                        .getJSONObject("message").optString("content", "")
+                    if (content.isBlank() || content == "null") throw GroqError(code, "la IA no devolvió texto")
+                    return content
+                }
+                val err = conn.errorStream?.bufferedReader()?.use { it.readText() }.orEmpty()
+                if (code == 429 && reintentos429 < 1) {
+                    // Límite de Groq: espera lo que pide la cabecera retry-after (máx. 25 s) y reintenta una vez.
+                    val espera = (conn.getHeaderField("retry-after")?.toDoubleOrNull() ?: 5.0).coerceIn(1.0, 25.0)
+                    reintentos429++
+                    Thread.sleep((espera * 1000).toLong())
+                    continue
+                }
+                throw GroqError(code, mensajeAmigable(code, err), err)
+            } finally {
+                conn.disconnect()
+            }
         }
+    }
+
+    private fun mensajeAmigable(code: Int, cuerpo: String): String = when {
+        code == 401 -> "clave de Groq inválida"
+        code == 404 || cuerpo.contains("decommission", true) || cuerpo.contains("model_not_found", true) ->
+            "modelo apagado; cámbialo en Marca"
+        code == 429 -> "límite de Groq; espera unos segundos"
+        code == 413 -> "texto muy largo para Groq"
+        else -> "Groq $code"
+    }
+
+    /** Saca el objeto JSON aunque el modelo lo envuelva en texto o en ```bloques```. */
+    private fun extraerJson(s: String): String {
+        val a = s.indexOf('{')
+        val b = s.lastIndexOf('}')
+        return if (a >= 0 && b > a) s.substring(a, b + 1) else s
     }
 
     private fun parseResultado(content: String, titulo: String, resumen: String, fuente: String): Redactor.Resultado {

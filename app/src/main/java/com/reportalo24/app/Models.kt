@@ -72,9 +72,21 @@ object Categorias {
     )
 }
 
+/**
+ * Modelos de Groq vigentes. Groq apagó llama-3.3-70b-versatile y llama-3.1-8b-instant
+ * (16/08/2026); sus reemplazos recomendados son los gpt-oss. Cualquier modelo guardado
+ * que no esté aquí se migra solo al DEFECTO al cargar la config.
+ */
+object ModelosGroq {
+    const val DEFECTO = "openai/gpt-oss-120b"
+    const val RAPIDO = "openai/gpt-oss-20b"
+    private val vigentes = setOf(DEFECTO, RAPIDO)
+    fun vigente(modelo: String): Boolean = modelo in vigentes
+}
+
 /** Config de la redacción con IA (Groq). La clave se guarda solo en el teléfono. */
 data class AppConfig(
     val iaActiva: Boolean = false,
     val groqApiKey: String = "",
-    val groqModel: String = "llama-3.3-70b-versatile",
+    val groqModel: String = ModelosGroq.DEFECTO,
 )

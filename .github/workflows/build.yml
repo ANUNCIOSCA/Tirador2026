@@ -23,8 +23,27 @@ jobs:
         with:
           gradle-version: '8.11.1'
 
+      # Firma fija (opcional). Si los secretos existen, el APK se firma SIEMPRE con la misma llave
+      # y las actualizaciones se instalan encima sin desinstalar. Si no existen, se firma con la
+      # llave debug (comportamiento anterior).
+      - name: Preparar llave de firma (opcional)
+        env:
+          R24_KEYSTORE_B64: ${{ secrets.R24_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$R24_KEYSTORE_B64" ]; then
+            echo "$R24_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/r24-release.jks"
+            echo "R24_KEYSTORE=$RUNNER_TEMP/r24-release.jks" >> "$GITHUB_ENV"
+            echo "Llave de firma fija: ACTIVA"
+          else
+            echo "Sin llave de firma fija: se firma con la llave debug"
+          fi
+
       - name: Build release APK
         id: build
+        env:
+          R24_KEYSTORE_PASSWORD: ${{ secrets.R24_KEYSTORE_PASSWORD }}
+          R24_KEY_ALIAS: ${{ secrets.R24_KEY_ALIAS }}
+          R24_KEY_PASSWORD: ${{ secrets.R24_KEY_PASSWORD }}
         run: |
           set -o pipefail
           echo "sdk.dir=$ANDROID_HOME" > local.properties
@@ -34,13 +53,24 @@ jobs:
       - name: Publish result to branch
         if: always()
         run: |
+          VERSION=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts | head -1)
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           mkdir -p out
           cp build.log out/ 2>/dev/null || echo "no log" > out/build.log
           if [ -f app/build/outputs/apk/release/app-release.apk ]; then
-            cp app/build/outputs/apk/release/app-release.apk out/Reportalo24-v1.6.0.apk
+            cp app/build/outputs/apk/release/app-release.apk "out/Reportalo24-v${VERSION}.apk"
             echo "OK" > out/status.txt
+            if [ -n "$R24_KEYSTORE" ]; then echo "FIRMA=fija" >> out/status.txt; else echo "FIRMA=debug" >> out/status.txt; fi
+            APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner 2>/dev/null | sort -V | tail -1)
+            if [ -n "$APKSIGNER" ]; then "$APKSIGNER" verify --print-certs "out/Reportalo24-v${VERSION}.apk" > out/firma.txt 2>&1 || true; fi
           else
             echo "FAIL" > out/status.txt
+          fi
+          # main publica en la rama de siempre; las demás ramas publican aparte para no pisarla.
+          if [ "$GITHUB_REF_NAME" = "main" ]; then
+            OUT_BRANCH="reportalo24-ci-output"
+          else
+            OUT_BRANCH="reportalo24-ci-output-$(echo "$GITHUB_REF_NAME" | tr '/' '-')"
           fi
           cd out
           git init -q -b ci-output
@@ -48,10 +78,10 @@ jobs:
           git config user.name "CI"
           git add -A
           git commit -q -m "CI output ${GITHUB_SHA}"
-          git push -f "https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git" ci-output:reportalo24-ci-output
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git" "ci-output:${OUT_BRANCH}"
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: Reportalo24-v1.6.0
+          name: Reportalo24-v${{ env.VERSION }}
           path: out/
