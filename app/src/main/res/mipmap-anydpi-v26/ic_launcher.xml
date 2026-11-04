@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@color/ic_launcher_background" />
-    <foreground android:drawable="@mipmap/ic_launcher_fg" />
+    <!-- El logo ocupaba todo el lienzo y Android lo recortaba en círculo (base y punta del micrófono).
+         El margen del 12 % lo deja dentro de la zona segura del ícono y de la pantalla de arranque. -->
+    <foreground>
+        <inset
+            android:drawable="@mipmap/ic_launcher_fg"
+            android:inset="12%" />
+    </foreground>
 </adaptive-icon>
