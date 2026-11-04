@@ -14,6 +14,8 @@ android {
         targetSdk = 35
         versionCode = 8
         versionName = "1.6.1"
+        // Solo arquitecturas de teléfonos (las x86 son de emuladores): evita ~22 MB de OCR sin uso.
+        ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
     }
 
     signingConfigs {
