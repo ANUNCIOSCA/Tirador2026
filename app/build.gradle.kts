@@ -12,8 +12,8 @@ android {
         applicationId = "com.reportalo24.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 8
-        versionName = "1.6.1"
+        versionCode = 9
+        versionName = "1.6.2"
         // Solo arquitecturas de teléfonos (las x86 son de emuladores): evita ~22 MB de OCR sin uso.
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
     }
