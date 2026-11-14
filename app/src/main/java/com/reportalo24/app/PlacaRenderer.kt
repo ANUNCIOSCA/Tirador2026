@@ -119,9 +119,9 @@ object PlacaRenderer {
         // Dos posiciones: centro (posicion >= 25) o abajo (posicion < 25), ambas dentro de la zona segura
         val abajo = o.posicion < 25
         val top = if (stack) {
-            if (abajo) H * 0.645f - cardH else H * 0.38f - cardH / 2f
+            if (abajo) H - 70f - cardH else H * 0.38f - cardH / 2f
         } else {
-            if (abajo) H * 0.91f - cardH else H * 0.50f - cardH / 2f
+            if (abajo) H - 56f - cardH else H * 0.50f - cardH / 2f
         }.coerceAtLeast(tagH / 2f + 12f)
         val bottom = top + cardH
         val cardR = RectF(cardX, top, cardX + cardW, bottom)

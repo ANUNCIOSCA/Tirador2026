@@ -77,7 +77,7 @@ fun GeneradorScreen(
     var mostrarFranja by remember(inicial.id) { mutableStateOf(inicial.mostrarFranja) }
     var categoria by remember(inicial.id) { mutableStateOf(inicial.categoria) }
     var formato by remember(inicial.id) { mutableStateOf(inicial.formato) }
-    var posicion by remember(inicial.id) { mutableStateOf(50f) }
+    var posicion by remember(inicial.id) { mutableStateOf(0f) }
     var subSize by remember(inicial.id) { mutableStateOf(38f) }
     var tituloSize1 by remember(inicial.id) { mutableStateOf(72f) }
     var tituloSize2 by remember(inicial.id) { mutableStateOf(72f) }
