@@ -262,8 +262,11 @@ fun GeneradorScreen(
                     Slider(value = imgZoom, onValueChange = { imgZoom = it }, valueRange = 1f..2.6f)
                 }
                 Spacer(Modifier.height(8.dp))
-                Text("↕️ Posición del texto: ${posicion.toInt()}", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-                Slider(value = posicion, onValueChange = { posicion = it }, valueRange = 0f..100f)
+                Text("↕️ Posición del texto", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                Row {
+                    FilterChip(selected = posicion >= 25f, onClick = { posicion = 50f }, label = { Text("Centro") }, modifier = Modifier.padding(end = 8.dp))
+                    FilterChip(selected = posicion < 25f, onClick = { posicion = 0f }, label = { Text("Abajo") })
+                }
                 Text("🔡 Tamaño del subtítulo: ${subSize.toInt()}", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                 Slider(value = subSize, onValueChange = { subSize = it }, valueRange = 24f..54f)
             }
@@ -326,9 +329,12 @@ fun GeneradorScreen(
                         Text("🔠 Línea 1: ${tituloSize1.toInt()}     🔠 Línea 2: ${tituloSize2.toInt()}", color = Color.White, style = MaterialTheme.typography.bodySmall)
                         Slider(value = tituloSize1, onValueChange = { tituloSize1 = it }, valueRange = 24f..120f)
                         Slider(value = tituloSize2, onValueChange = { tituloSize2 = it }, valueRange = 24f..120f)
-                        Text("🔡 Subtítulo: ${subSize.toInt()}     ↕️ Posición: ${posicion.toInt()}", color = Color.White, style = MaterialTheme.typography.bodySmall)
+                        Text("🔡 Subtítulo: ${subSize.toInt()}     ↕️ Posición: ${if (posicion < 25f) "Abajo" else "Centro"}", color = Color.White, style = MaterialTheme.typography.bodySmall)
                         Slider(value = subSize, onValueChange = { subSize = it }, valueRange = 24f..54f)
-                        Slider(value = posicion, onValueChange = { posicion = it }, valueRange = 0f..100f)
+                        Row {
+                            FilterChip(selected = posicion >= 25f, onClick = { posicion = 50f }, label = { Text("Centro") }, modifier = Modifier.padding(end = 8.dp))
+                            FilterChip(selected = posicion < 25f, onClick = { posicion = 0f }, label = { Text("Abajo") })
+                        }
                     }
                 }
             }

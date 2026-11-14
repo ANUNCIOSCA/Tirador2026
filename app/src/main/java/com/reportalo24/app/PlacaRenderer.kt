@@ -116,12 +116,13 @@ object PlacaRenderer {
         val cardH = tagH / 2f + 40f + ruleBlock + titleH + divBlock + subH + 44f + tabH
 
         // Centrado vertical: en Reel, en la franja segura (16 %–62 % de alto); en feed/carrusel, al centro
-        // 50 = centro seguro. Más de 50 sube la tarjeta; menos de 50 la baja. Todo el recorrido se puede usar.
-        val midTop = (if (stack) H * 0.39f else H * 0.50f) - cardH / 2f
-        val topLim = max(tagH / 2f + 10f, H * 0.04f)
-        val botLim = max(topLim, H * (if (stack) 0.94f else 0.96f) - cardH - 24f)
-        val t = ((o.posicion - 50) / 50f).coerceIn(-1f, 1f)
-        val top = if (t >= 0f) midTop - t * (midTop - topLim) else midTop + (-t) * (botLim - midTop)
+        // Dos posiciones: centro (posicion >= 25) o abajo (posicion < 25), ambas dentro de la zona segura
+        val abajo = o.posicion < 25
+        val top = if (stack) {
+            if (abajo) H * 0.645f - cardH else H * 0.38f - cardH / 2f
+        } else {
+            if (abajo) H * 0.91f - cardH else H * 0.50f - cardH / 2f
+        }.coerceAtLeast(tagH / 2f + 12f)
         val bottom = top + cardH
         val cardR = RectF(cardX, top, cardX + cardW, bottom)
 
