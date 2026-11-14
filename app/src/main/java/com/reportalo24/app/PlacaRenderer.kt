@@ -5,6 +5,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.LinearGradient
 import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Shader
@@ -66,141 +67,145 @@ object PlacaRenderer {
             }
         }
 
-        val padX = 110f
-        val maxTextW = W - padX * 2
-        val footerY = H - 70f
-        val lift = (o.posicion / 100f) * (H * 0.33f)
+        // 2. Degradado decorativo (solo adorno: nada importante va en estas zonas)
+        val gTop = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            shader = LinearGradient(0f, 0f, 0f, H * 0.22f, Color.argb(90, 15, 90, 90), Color.argb(0, 15, 90, 90), Shader.TileMode.CLAMP)
+        }
+        c.drawRect(0f, 0f, W.toFloat(), H * 0.22f, gTop)
+        val gBot = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            shader = LinearGradient(0f, H * 0.60f, 0f, H.toFloat(), Color.argb(0, 11, 70, 70), Color.argb(190, 11, 70, 70), Shader.TileMode.CLAMP)
+        }
+        c.drawRect(0f, H * 0.60f, W.toFloat(), H.toFloat(), gBot)
 
-        // --- Subtítulo (tokens con palabra clave en rojo) ---
+        // 3. Tarjeta editorial centrada dentro de la zona segura de Reels/feed
+        val teal = Color.rgb(26, 139, 139)
+        val ink = Color.rgb(22, 50, 58)
+        val red = Color.rgb(214, 31, 44)
+        val cardW = W * 0.86f
+        val cardX = (W - cardW) / 2f
+        val inner = cardW - 112f
+        val stack = o.formato == FormatoPlaca.STORY
+
+        // Etiqueta (enganche): la franja; si no hay, la categoría
+        val tagText = when {
+            o.mostrarFranja && o.franja.isNotBlank() -> o.franja.trim().uppercase()
+            o.categoria.isNotBlank() && o.categoria != "NINGUNA" -> o.categoria.trim().uppercase()
+            else -> ""
+        }
+        var tagSize = 34f
+        while (tagSize > 20f && textPaint(tagSize, true).measureText(tagText) + tagSize * 3.2f > cardW - 80f) tagSize -= 2f
+        val tagH = if (tagText.isEmpty()) 0f else tagSize * 1.9f
+
+        // Título (2 líneas) y subtítulo
+        val (l1Text, l2Text) = splitTitle(o.titulo.trim().uppercase(), inner)
+        val startTitle = if (o.formato == FormatoPlaca.STORY) 84 else 72
+        val l1 = fitSingle(l1Text, if (o.tituloSize1 > 0) minOf(o.tituloSize1, startTitle + 12) else startTitle, 26, inner)
+        val l2 = fitSingle(l2Text, if (o.tituloSize2 > 0) minOf(o.tituloSize2, startTitle + 12) else startTitle, 26, inner)
+        val titleLines = listOf(l1, l2).filter { it.text.isNotBlank() }
+        fun lineBox(size: Float) = size * 1.12f
         val subTokens = if (o.subtitulo.isNotBlank()) parseTokens(o.subtitulo) else emptyList()
-        val subStart = o.subSize
-        val subMin = max(18, subStart - 10)
-        val subFit = if (subTokens.isNotEmpty())
-            fitTokenLines(subTokens, subStart, subMin, 4, 16, maxTextW)
-        else FitTokens(emptyList(), subStart.toFloat())
-        val subLineH = (subFit.size * 0.90f).roundToInt()
-        val subBottom = footerY - 45f - 40f - lift
-        var subTop = subBottom - (subFit.lines.size - 1).coerceAtLeast(0) * subLineH
+        val subFit = if (subTokens.isNotEmpty()) fitTokenLines(subTokens, min(o.subSize, 40), 22, 4, 18, inner)
+        else FitTokens(emptyList(), 30f)
+        val subLH = subFit.size * 1.32f
 
-        // --- Título (máx 2 líneas, autoajustado) ---
-        val titlePadX = 70f
-        val titleMaxW = W - titlePadX * 2
-        val tituloUp = o.titulo.trim().uppercase()
-        val (l1Text, l2Text) = splitTitle(tituloUp, titleMaxW)
-        val startTitle = if (W >= 1080 && H >= 1600) 92 else 78
-        val start1 = if (o.tituloSize1 > 0) o.tituloSize1 else startTitle
-        val start2 = if (o.tituloSize2 > 0) o.tituloSize2 else startTitle
-        val l1 = fitSingle(l1Text, start1, 24, titleMaxW)
-        val l2 = fitSingle(l2Text, start2, 24, titleMaxW)
-        val hasL2 = l2Text.isNotBlank()
+        val tabH = 92f
+        val ruleBlock = 12f + 30f
+        val titleH = titleLines.sumOf { lineBox(it.size).toDouble() }.toFloat()
+        val divBlock = if (subFit.lines.isNotEmpty()) 36f + 22f + 30f else 0f
+        val subH = subFit.lines.size * subLH
+        val cardH = tagH / 2f + 40f + ruleBlock + titleH + divBlock + subH + 44f + tabH
 
-        var titleBottom = subTop - subLineH - 24f
-        var titleTop = if (hasL2) titleBottom - ((l1.size + l2.size) / 2f * 0.90f) else titleBottom
+        // Centrado vertical: en Reel, en la franja segura (16 %–62 % de alto); en feed/carrusel, al centro
+        val centerY = (if (stack) H * 0.39f else H * 0.50f) + (o.posicion - 50) / 50f * H * 0.06f
+        val top = (centerY - cardH / 2f).coerceIn(H * 0.14f, max(H * 0.14f, H * 0.66f - cardH))
+        val bottom = top + cardH
+        val cardR = RectF(cardX, top, cardX + cardW, bottom)
 
-        // Tope superior de seguridad: el texto nunca sube más del 30%
-        val minTop = H * 0.30f
-        if (titleTop < minTop) {
-            val push = minTop - titleTop
-            titleTop += push; titleBottom += push
-            subTop += push
+        // Marco desplazado (profundidad) y tarjeta blanca con sombra
+        val frame = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = 5f; color = teal }
+        c.drawRect(RectF(cardR.left + 24f, cardR.top + 24f, cardR.right + 24f, cardR.bottom + 24f), frame)
+        val white = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE; setShadowLayer(34f, 0f, 14f, Color.argb(120, 0, 0, 0)) }
+        c.drawRect(cardR, white)
+
+        var y = top + tagH / 2f + 40f
+        val cx = W / 2f
+        // Raya roja gruesa
+        val redP = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = red }
+        c.drawRect(cx - 62f, y, cx + 62f, y + 12f, redP)
+        y += ruleBlock
+
+        // Título
+        for (tl in titleLines) {
+            val p = textPaint(tl.size, true).apply { color = ink; textAlign = Paint.Align.CENTER }
+            val fm = p.fontMetrics
+            val box = lineBox(tl.size)
+            c.drawText(tl.text, cx, y + (box - (fm.descent - fm.ascent)) / 2f - fm.ascent, p)
+            y += box
         }
 
-        // --- Franja roja (arriba del título) ---
-        val franjaText = o.franja.trim().uppercase()
-        val franjaOn = o.mostrarFranja && franjaText.isNotEmpty()
-        var tagH = 0f
-        var tagSize = 40f
-        var tagFinal = franjaText
-        if (franjaOn) {
-            val floor = 22f
-            var fit = floor
-            var s = 40f
-            while (s >= floor) {
-                val p = textPaint(s, true)
-                if (p.measureText(franjaText) + (s * 0.94f) * 2 <= maxTextW) { fit = s; break }
-                s -= 2f
-            }
-            if (fit == floor) {
-                val p = textPaint(floor, true)
-                var t = franjaText
-                while (t.isNotEmpty() && p.measureText("$t…") + (floor * 0.94f) * 2 > maxTextW) t = t.dropLast(1)
-                tagFinal = t.trimEnd() + "…"
-            }
-            tagSize = fit
-            tagH = (fit * 1.83f)
-        }
-        val tagBottom = titleTop - l1.size - 30f
-        val tagTop = tagBottom - tagH
-
-        // 2. Degradado dinámico (teal de marca)
-        val overlayTop = if (franjaOn) tagTop else (titleTop - l1.size)
-        var gradStart = min(H * 0.62f, overlayTop - 60f)
-        if (gradStart < 0f) gradStart = 0f
-        val stops = floatArrayOf(0f, min(0.22f, 70f / max(1f, H - gradStart)), 0.45f, 0.82f, 1f)
-        val colors = intArrayOf(
-            Color.argb(0, 22, 162, 179),
-            Color.argb((0.95f * 0.6f * 255).toInt(), 22, 150, 165),
-            Color.argb((0.95f * 255).toInt(), 22, 150, 165),
-            Color.argb(255, 15, 113, 125),
-            Color.argb(255, 15, 113, 125),
-        )
-        val gradPaint = Paint(Paint.ANTI_ALIAS_FLAG)
-        gradPaint.shader = LinearGradient(0f, gradStart, 0f, H.toFloat(), colors, stops, Shader.TileMode.CLAMP)
-        c.drawRect(0f, gradStart, W.toFloat(), H.toFloat(), gradPaint)
-
-        // 3. Footer
-        val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.argb((0.45f * 255).toInt(), 255, 255, 255); strokeWidth = 3f
-        }
-        c.drawLine(padX, footerY - 45f, W - padX, footerY - 45f, linePaint)
-        val fecha = SimpleDateFormat("dd MMM, HH:mm", Locale("es", "VE")).format(Date())
-        val footL = textPaint(30f, false).apply { textAlign = Paint.Align.LEFT; color = Color.argb(242, 255, 255, 255); setShadowLayer(6f, 0f, 0f, Color.argb(153, 0, 0, 0)) }
-        c.drawText(fecha, padX, footerY, footL)
-        val footR = textPaint(30f, true).apply { textAlign = Paint.Align.RIGHT; color = Color.argb(242, 255, 255, 255); setShadowLayer(6f, 0f, 0f, Color.argb(153, 0, 0, 0)) }
-        c.drawText(o.usuario.uppercase(), W - padX, footerY, footR)
-
-        // 4. Subtítulo (blanco, palabra clave en rojo), centrado a mano
+        // Divisor fino con rombo + subtítulo
         if (subFit.lines.isNotEmpty()) {
+            y += 36f
+            val soft = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(207, 227, 227) }
+            val my = y + 11f
+            c.drawRect(cardR.left + 70f, my - 1.5f, cx - 22f, my + 1.5f, soft)
+            c.drawRect(cx + 22f, my - 1.5f, cardR.right - 70f, my + 1.5f, soft)
+            val d = Path().apply { moveTo(cx, my - 11f); lineTo(cx + 11f, my); lineTo(cx, my + 11f); lineTo(cx - 11f, my); close() }
+            c.drawPath(d, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = teal })
+            y += 22f + 30f
             val base = textPaint(subFit.size, false)
-            base.setShadowLayer(14f, 0f, 3f, Color.argb(230, 0, 0, 0))
             for (i in subFit.lines.indices) {
                 val line = subFit.lines[i]
                 val full = line.joinToString(" ") { it.text }
-                val lineW = base.measureText(full)
-                var lx = W / 2f - lineW / 2f
-                val ly = subTop + i * subLineH
+                var lx = cx - base.measureText(full) / 2f
+                val fm = base.fontMetrics
+                val ly = y + i * subLH + (subLH - (fm.descent - fm.ascent)) / 2f - fm.ascent
                 for (j in line.indices) {
                     val tok = line[j]
                     val piece = tok.text + if (j < line.size - 1) " " else ""
-                    base.color = if (tok.hot) Color.rgb(255, 59, 48) else Color.argb(250, 255, 255, 255)
+                    base.color = if (tok.hot) red else Color.rgb(50, 75, 84)
                     c.drawText(piece, lx, ly, base)
                     lx += base.measureText(piece)
                 }
             }
         }
 
-        // 5. Título (línea 1 y 2), con contorno + sombra
-        drawTitleLine(c, l1.text, l1.size, W / 2f, titleTop)
-        if (hasL2) drawTitleLine(c, l2.text, l2.size, W / 2f, titleBottom)
-
-        // 6. Franja roja
-        if (franjaOn) {
-            drawPill(c, tagFinal, tagSize, W / 2f, tagTop, tagH, maxTextW, centered = true)
-        }
-
-        // 7. Categoría (pastilla arriba a la derecha)
-        if (o.categoria.isNotBlank() && o.categoria != "NINGUNA") {
-            drawCategoria(c, o.categoria, W)
-        }
-
-        // 8. Logo opcional (arriba centrado)
+        // Pestaña de marca pegada abajo de la tarjeta
+        val tabTop = bottom - tabH
+        c.drawRect(RectF(cardR.left, tabTop, cardR.right, bottom), Paint(Paint.ANTI_ALIAS_FLAG).apply { color = teal })
+        val brand = if (o.usuario.isBlank()) "REPÓRTALO 24" else "REPÓRTALO 24 · ${o.usuario.trim().uppercase()}"
+        var bs = 32f
+        while (bs > 20f && textPaint(bs, true).measureText(brand) + 70f > cardW - 80f) bs -= 2f
+        val bp = textPaint(bs, true).apply { color = Color.WHITE }
+        val bw = bp.measureText(brand)
+        val icon = 52f
+        val groupW = icon + 18f + bw
+        val gx = cx - groupW / 2f
+        val iy = tabTop + tabH / 2f
         if (o.logo != null) {
-            val lw = (W * 0.16f)
-            val ratio = o.logo.height.toFloat() / o.logo.width.toFloat()
-            val lh = lw * ratio
-            val lx = (W - lw) / 2f
-            val ly = 60f
-            c.drawBitmap(o.logo, null, RectF(lx, ly, lx + lw, ly + lh), Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG))
+            val lw = icon * o.logo.width.toFloat() / o.logo.height.toFloat()
+            c.drawBitmap(o.logo, null, RectF(gx, iy - icon / 2f, gx + lw, iy + icon / 2f), Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG))
+            val fm = bp.fontMetrics
+            c.drawText(brand, gx + lw + 18f, iy - (fm.ascent + fm.descent) / 2f, bp)
+        } else {
+            drawMic(c, gx + icon / 2f, iy, icon, teal)
+            val fm = bp.fontMetrics
+            c.drawText(brand, gx + icon + 18f, iy - (fm.ascent + fm.descent) / 2f, bp)
+        }
+
+        // Etiqueta roja sobre el borde superior de la tarjeta
+        if (tagText.isNotEmpty()) {
+            val tp = textPaint(tagSize, true)
+            val dot = tagSize * 0.5f
+            val tw = tp.measureText(tagText)
+            val padX = tagSize * 0.95f
+            val bwTag = min(padX * 2 + dot + tagSize * 0.45f + tw, cardW - 40f)
+            val bx = cx - bwTag / 2f
+            val pill = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = red; setShadowLayer(16f, 0f, 6f, Color.argb(120, 214, 31, 44)) }
+            c.drawRoundRect(RectF(bx, top - tagH / 2f, bx + bwTag, top + tagH / 2f), tagH / 2f, tagH / 2f, pill)
+            c.drawCircle(bx + padX + dot / 2f, top, dot / 2f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE })
+            val fm = tp.fontMetrics
+            c.drawText(tagText, bx + padX + dot + tagSize * 0.45f, top - (fm.ascent + fm.descent) / 2f, tp)
         }
 
         return bmp
@@ -347,6 +352,18 @@ object PlacaRenderer {
         val fm = tp.fontMetrics
         val ty = top + h / 2f - (fm.ascent + fm.descent) / 2f
         c.drawText(text, cx, ty, tp)
+    }
+
+    /** Micrófono de marca (círculo blanco con el micrófono en el color dado). */
+    private fun drawMic(c: Canvas, cx: Float, cy: Float, d: Float, color: Int) {
+        c.drawCircle(cx, cy, d / 2f, Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = Color.WHITE })
+        val st = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE; strokeWidth = d * 0.07f; strokeCap = Paint.Cap.ROUND; this.color = color
+        }
+        val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color }
+        c.drawRoundRect(RectF(cx - d * 0.11f, cy - d * 0.27f, cx + d * 0.11f, cy + d * 0.07f), d * 0.11f, d * 0.11f, fill)
+        c.drawArc(RectF(cx - d * 0.2f, cy - d * 0.17f, cx + d * 0.2f, cy + d * 0.19f), 0f, 180f, false, st)
+        c.drawLine(cx, cy + d * 0.19f, cx, cy + d * 0.29f, st)
     }
 
     private fun drawCategoria(c: Canvas, cat: String, W: Int) {
